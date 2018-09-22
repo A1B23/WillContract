@@ -68,12 +68,18 @@ contract WillContract {
         return state == State.ForRelease;
     }
     
-    function getCompleted() internal view returns (uint8) {
+    // Provide the number of successful/registered release requests
+    // which must come from the list of approved beneficiaries only
+    function getNumberReleaseRequests() internal view returns (uint8) {
         uint8 cnt=0;
         for(uint idx =0; idx < addrBene.length; idx++) {
             if (addrBene[idx] != 0x00) {
                 if (benefit[addrBene[idx]] == Beneficiary.Completed) {
                     cnt++;
+                    if (cnt == 0) {
+                        // Handle unlikely but potential overflow
+                        return 0;
+                    }
                 }
             }
         }
@@ -81,7 +87,7 @@ contract WillContract {
     }
     
     function getNumberMissingForRelease() public view returns (uint8) {
-        uint8 cnt = getCompleted();
+        uint8 cnt = getNumberReleaseRequests();
         if (cnt >= minumumRelease) {
             return 0;
         }
@@ -119,14 +125,7 @@ contract WillContract {
         require(state == State.ForRelease);
         require(benefit[bene] == Beneficiary.Permitted);
         benefit[bene] == Beneficiary.Completed;
-        uint cnt=0;
-        for(uint idx =0; idx < addrBene.length; idx++) {
-            if (addrBene[idx] != 0x00) {
-                if (benefit[addrBene[idx]] == Beneficiary.Completed) {
-                    cnt++;
-                }
-            }
-        }
+        uint8 cnt=getNumberReleaseRequests();
         if (cnt >= minumumRelease) {
             state = State.Active;
             // TODO here we throw the event for the listener!!!
