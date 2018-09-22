@@ -24,7 +24,7 @@ contract WillContract {
     // This is the address of the owner who controls the main state
     address owner;
     
-    uint8 minumumRelease = 0;
+    uint minumumRelease = 0;
 
     
     constructor() public {
@@ -70,32 +70,30 @@ contract WillContract {
     
     // Provide the number of successful/registered release requests
     // which must come from the list of approved beneficiaries only
-    function getNumberReleaseRequests() internal view returns (uint8) {
-        uint8 cnt=0;
+    function getNumberReleaseRequests() internal view returns (uint) {
+        uint cnt=0;
         for(uint idx =0; idx < addrBene.length; idx++) {
             if (addrBene[idx] != 0x00) {
                 if (benefit[addrBene[idx]] == Beneficiary.Completed) {
                     cnt++;
-                    if (cnt == 0) {
-                        // Handle unlikely but potential overflow
-                        return 0;
-                    }
                 }
             }
         }
         return cnt;
     }
     
-    function getNumberMissingForRelease() public view returns (uint8) {
-        uint8 cnt = getNumberReleaseRequests();
+    function getNumberMissingForRelease() public view returns (uint) {
+        require(state >= State.Register);
+        uint cnt = getNumberReleaseRequests();
         if (cnt >= minumumRelease) {
             return 0;
         }
-        return (uint8) (minumumRelease-cnt);
+        return minumumRelease-cnt;
     }
     
     function enable() public {
         require(msg.sender == owner);
+        require(state == State.Register);
         require(addrBene.length >= minumumRelease);
         state = State.ForRelease;
     }
@@ -110,22 +108,18 @@ contract WillContract {
         delete addrBene;
     }
     
-    function blockBeneficiary(address bene) public {
+    function blockBeneficiary(address bene) public view returns (bool) {
         require(msg.sender == owner);
         require(state < State.Active);
         require(benefit[bene] < Beneficiary.Completed);
-        state = State.Fee;
-        for (uint idx=0; idx<addrBene.length;idx++) {
-            delete benefit[addrBene[idx]];
-        }
-        delete addrBene;
+        benefit[bene] < Beneficiary.Blocked;
     }
     
     function releaseFor(address bene) public payable {
         require(state == State.ForRelease);
         require(benefit[bene] == Beneficiary.Permitted);
         benefit[bene] == Beneficiary.Completed;
-        uint8 cnt=getNumberReleaseRequests();
+        uint cnt=getNumberReleaseRequests();
         if (cnt >= minumumRelease) {
             state = State.Active;
             // TODO here we throw the event for the listener!!!
