@@ -64,7 +64,7 @@ contract WillContract {
         return registerFee;
     }
     
-    function isOpenForRelase() public view returns (bool) {
+    function isOpenForRelease() public view returns (bool) {
         return state == State.ForRelease;
     }
     
