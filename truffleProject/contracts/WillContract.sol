@@ -3,6 +3,7 @@ pragma solidity ^0.4.24;
 contract WillContract {
     
     uint constant maxBene = 100; // this is a hard limit to avoid gas overflow
+    uint codeRef = 0;
     
     // This state defines the control by the owner and the progressive
     // stages even if the owner does not act anymore 
@@ -29,9 +30,14 @@ contract WillContract {
     
     uint8 minumumRelease = 0;
 
+    // the external party knows the owners address, so it monitors for this event
+    event ReleaseRequestsCompleted(address indexed id,uint indexed ref);
     
-    constructor() public {
+    constructor(uint refCode) public {
         owner = msg.sender;
+        require(refCode > 0);
+        codeRef = refCode;
+        // set initial state to allow only setting of fee an dother parameters
         state = State.Fee;
     }
 
@@ -39,9 +45,11 @@ contract WillContract {
         // there is no need to register the n, as it is the length of the array
         require(state == State.Fee);
         require(msg.sender == owner);
+        require(m_out_of_n < maxBene);
         // zero is allowed if trustd party is charity :-)
         registerFee = fee;
         minumumRelease = m_out_of_n;
+        // the parameters can onlyb eset once, and the next stage begins
         state = State.Register;
     }
     
@@ -61,6 +69,10 @@ contract WillContract {
     
     function getNumberBeneficiaries() public view returns (uint) {
         return getNumberBeneficiaryState(Beneficiary.Completed) + getNumberBeneficiaryState(Beneficiary.Permitted);
+    }
+    
+    function getReferenceCode() public view returns (uint) {
+        return codeRef;
     }
     
     function getReleaseFee() public view returns (uint) {
@@ -85,7 +97,9 @@ contract WillContract {
         return cnt;
     }
     
+    // provide the number of missing release request before release is triggered
     function getNumberMissingForRelease() public view returns (uint) {
+        //state must be in registration or higher 
         require(state >= State.Register);
         uint cnt = getNumberBeneficiaryState(Beneficiary.Completed);
         if (cnt >= minumumRelease) {
@@ -94,6 +108,7 @@ contract WillContract {
         return minumumRelease-cnt;
     }
     
+    // provide the number of missing beneficiary registrations
     function getNumberMissingBeneficiaries() public view returns (uint) {
         require(state >= State.Register);
         uint cnt = getNumberBeneficiaryState(Beneficiary.Permitted);
@@ -103,6 +118,8 @@ contract WillContract {
         return minumumRelease-cnt;
     }
     
+    // Once enough/all beneficiaries are registered, owner can close
+    // registration and enable the release requests
     function enable() public {
         require(msg.sender == owner);
         require(state == State.Register);
@@ -110,6 +127,8 @@ contract WillContract {
         state = State.ForRelease;
     }
     
+    // Unless the release is over, the owner can reset the entire
+    // state to void, e.g. if owner suspects cheating/colluding etc.
     function reset() public {
         require(msg.sender == owner);
         require(state < State.Active);
@@ -122,6 +141,8 @@ contract WillContract {
         minumumRelease = 0;
     }
     
+    // Owner may block certain beneficiary/address from further use
+    // unless it already registered a release request
     function blockBeneficiary(address bene) public {
         require(msg.sender == owner);
         require(state < State.Active);
@@ -129,6 +150,9 @@ contract WillContract {
         benefit[bene] = Beneficiary.Blocked;
     }
     
+    // Any registered beneficiary can pay the required fee to register
+    // the request for release. When the minimum of such requests is reached
+    // an event is triggered to inform the custodian
     function releaseFor(address bene) public payable {
         require(state == State.ForRelease);
         require(benefit[bene] == Beneficiary.Permitted);
@@ -136,7 +160,7 @@ contract WillContract {
         uint cnt=getNumberBeneficiaryState(Beneficiary.Completed);
         if (cnt >= minumumRelease) {
             state = State.Active;
-            // TODO here we throw the event for the listener!!!
+            emit ReleaseRequestsCompleted(owner, codeRef);
         }
     }
     

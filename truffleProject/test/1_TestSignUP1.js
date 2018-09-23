@@ -180,9 +180,19 @@ function setParams(dat, n_of_m) {
     });
 }
 
+function checkRefCode() {
+    it("should have a refCode of 0x124", async function () {
+        let instance = await WillContract.deployed();
+        let val = await instance.getReferenceCode();
+        // set 0x124 or other refCode in 2_WillContact migration script!
+        assert.equal(val, 0x124, "Invalid refCode:" + val);
+    });
+}
+
 contract('Check correct initial state', function (accounts) {
     var dat = init();
     testAll(dat);
+    checkRefCode();
 });
 
 contract('Set parameters and check correct state', function (accounts) {
@@ -212,6 +222,7 @@ contract('Ensure only owner can change parameters', function (accounts) {
         assert.equal(val, 0, "Invalid fee: " + val);
     });
     testAll(init());
+    checkRefCode();
 });
 
 contract('Ensure no one can change parameters', function (accounts) {
@@ -248,6 +259,7 @@ contract('Ensure no one can change parameters', function (accounts) {
     cpx['misRelease'] = 1;
     cpx['misBene'] = 1;
     testAll(cpx);
+    checkRefCode();
 });
 
 contract('Register 1 beneficiary for immediate release', function (accounts) {
@@ -370,6 +382,7 @@ contract('Check that system reset works after registering 2:1 and then register 
     });
     testAll(init());
     registerN(accounts, 5, 3);
+    checkRefCode();
 });
 
 contract('Enabling is possible 2:1', function (accounts) {
@@ -430,7 +443,7 @@ contract('Enabling is still possible for 2:1 after blocking 1', function (accoun
     testAll(cpx);
 });
 
-contract('Enabling is not possible for 2:1 after blocking 2, even trying to re-enable one fails', function (accounts) {
+contract('Enabling is not possible for 2:1 after blocking 2, even trying to re-enable 1 fails, after all register and enable work again', function (accounts) {
     var dat = registerN(accounts, 2, 1);
     it("should block all registered beneficiary and not allow re-registering any", async function () {
         let instance = await WillContract.deployed();
