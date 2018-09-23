@@ -1,6 +1,9 @@
 pragma solidity ^0.4.24;
 
 contract WillContract {
+    
+    uint constant maxBene = 100; // this is a hard limit to avoid gas overflow
+    
     // This state defines the control by the owner and the progressive
     // stages even if the owner does not act anymore 
     enum State {Undef, Fee, Register, ForRelease, ReInit, Active, Completed, Frozen}
@@ -45,7 +48,7 @@ contract WillContract {
     function registerBeneficiary(address bene) public {
         require(msg.sender == owner);
         // Set a limit to it
-        require(addrBene.length < 255);
+        require(addrBene.length < maxBene);
         // A fee must be set before the first registration, else
         // a quick beneficiary may get through with zero fees after registering here
         require(state == State.Register);
@@ -57,7 +60,7 @@ contract WillContract {
     }
     
     function getNumberBeneficiaries() public view returns (uint) {
-        return addrBene.length;
+        return getNumberBeneficiaryState(Beneficiary.Completed) + getNumberBeneficiaryState(Beneficiary.Permitted);
     }
     
     function getReleaseFee() public view returns (uint) {
@@ -70,7 +73,7 @@ contract WillContract {
     
     // Provide the number of successful/registered release requests
     // which must come from the list of approved beneficiaries only
-    function getNumberReleaseRequests(Beneficiary benState) internal view returns (uint) {
+    function getNumberBeneficiaryState(Beneficiary benState) internal view returns (uint) {
         uint cnt=0;
         for(uint idx =0; idx < addrBene.length; idx++) {
             if (addrBene[idx] != 0x00) {
@@ -84,7 +87,7 @@ contract WillContract {
     
     function getNumberMissingForRelease() public view returns (uint) {
         require(state >= State.Register);
-        uint cnt = getNumberReleaseRequests(Beneficiary.Completed);
+        uint cnt = getNumberBeneficiaryState(Beneficiary.Completed);
         if (cnt >= minumumRelease) {
             return 0;
         }
@@ -93,7 +96,7 @@ contract WillContract {
     
     function getNumberMissingBeneficiaries() public view returns (uint) {
         require(state >= State.Register);
-        uint cnt = getNumberReleaseRequests(Beneficiary.Permitted);
+        uint cnt = getNumberBeneficiaryState(Beneficiary.Permitted);
         if (cnt >= minumumRelease) {
             return 0;
         }
@@ -103,7 +106,7 @@ contract WillContract {
     function enable() public {
         require(msg.sender == owner);
         require(state == State.Register);
-        require(addrBene.length >= minumumRelease);
+        require(getNumberBeneficiaryState(Beneficiary.Permitted) >= minumumRelease);
         state = State.ForRelease;
     }
     
@@ -130,7 +133,7 @@ contract WillContract {
         require(state == State.ForRelease);
         require(benefit[bene] == Beneficiary.Permitted);
         benefit[bene] = Beneficiary.Completed;
-        uint cnt=getNumberReleaseRequests(Beneficiary.Completed);
+        uint cnt=getNumberBeneficiaryState(Beneficiary.Completed);
         if (cnt >= minumumRelease) {
             state = State.Active;
             // TODO here we throw the event for the listener!!!

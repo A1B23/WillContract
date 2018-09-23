@@ -39,7 +39,7 @@ function testAll(inp) {
         assert.equal(val, cp['curFee'], sm1);
     });
 
-    its = "status indicator for OpenforRelease";
+    its = "status indicator for OpenforRelease: " + (cp['state'] == 3);
     var sm2 = sm(its, cp['state']);
     it(txt + its, async function () {
         let instance = await WillContract.deployed();
@@ -287,7 +287,7 @@ contract('Ensure only owner can register beneficiaries ', function (accounts) {
     setParams(dat,1);
     var cpx = copy(dat);
     cpx['state'] = 2;
-    it("should fail to register a beneficiary", async function () {
+    it("should fail to register a beneficiary from non-owner", async function () {
         let instance = await WillContract.deployed();
         let thrown = false;
         try {
@@ -339,6 +339,29 @@ contract('Can add more than minimum beneficiary needed 2:1', function (accounts)
     registerN(accounts,2,1);
 });
 
+contract('Cannot register beneficiary twice', function (accounts) {
+    registerN(accounts, 2, 1);
+    it("should fail to register same beneficiary again", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.registerBeneficiary(accounts[1]);
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+
+        thrown = false;
+        try {
+            await instance.registerBeneficiary(accounts[0]);
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+
+});
+
 contract('Check that system reset works after registering 2:1 and then register 5:3', function (accounts) {
     registerN(accounts, 2, 1);
     it("should set all to zero", async function () {
@@ -347,5 +370,63 @@ contract('Check that system reset works after registering 2:1 and then register 
     });
     testAll(init());
     registerN(accounts, 5, 3);
+});
+
+contract('Enabling is possible 2:1', function (accounts) {
+    var dat = registerN(accounts, 2, 1);
+    it("should enable releasing", async function () {
+        let instance = await WillContract.deployed();
+        await instance.enable();
+    });
+    var cpx = copy(dat);
+    cpx['state'] = 3;
+    testAll(cpx);
+});
+
+contract('Cannot register anymore after enabling, bith new and old', function (accounts) {
+    var dat = registerN(accounts, 2, 1);
+    it("should enable releasing", async function () {
+        let instance = await WillContract.deployed();
+        await instance.enable();
+    });
+    var cpx = copy(dat);
+    cpx['state'] = 3;
+    testAll(cpx);
+    it("should fail to register a new beneficiary", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.registerBeneficiary(accounts[2]);
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+    it("should fail to register an existing beneficiary", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.registerBeneficiary(accounts[1]);
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+});
+
+contract('Enabling is still possible 2:1 after blocking 1', function (accounts) {
+    var dat = registerN(accounts, 2, 1);
+    it("should block a registered only beneficiary", async function () {
+        let instance = await WillContract.deployed();
+        await instance.blockBeneficiary(accounts[1]);
+    });
+    it("should enable releasing", async function () {
+        let instance = await WillContract.deployed();
+        await instance.enable();
+    });
+    var cpx = copy(dat);
+    cpx['state'] = 3;
+    cpx['numBene'] = 1;
+    testAll(cpx);
 });
 
