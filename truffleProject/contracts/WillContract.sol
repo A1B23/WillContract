@@ -4,6 +4,8 @@ contract WillContract {
     
     uint constant maxBene = 100; // this is a hard limit to avoid gas overflow
     uint codeRef = 0;
+    address watcher=0;
+    uint watcherKey=0;
     
     // This state defines the control by the owner and the progressive
     // stages even if the owner does not act anymore 
@@ -19,7 +21,7 @@ contract WillContract {
     // This sets the fee which beneficiaries must pay the trusted controller
     // It is outside this contract to resove dispoutes in a m to n case why
     // m beneficiaries pay the fee an dthe other need not
-    uint registerFee = 0;    
+    uint releaseFee = 0;    
 
     // To verify and control the totla amount of fees to the trusted controller
     // it is not necessary to track individual contibutors, only the total sum is needed
@@ -41,13 +43,15 @@ contract WillContract {
         state = State.Fee;
     }
 
-    function setCriteria(uint fee, uint8 m_out_of_n) public {
+    function setCriteria(uint fee, uint8 m_out_of_n,address trustedWatcher) public {
         // there is no need to register the n, as it is the length of the array
         require(state == State.Fee);
         require(msg.sender == owner);
         require(m_out_of_n < maxBene);
+        require(trustedWatcher > 0);
+        watcher = trustedWatcher;
         // zero is allowed if trustd party is charity :-)
-        registerFee = fee;
+        releaseFee = fee;
         minumumRelease = m_out_of_n;
         // the parameters can onlyb eset once, and the next stage begins
         state = State.Register;
@@ -76,7 +80,7 @@ contract WillContract {
     }
     
     function getReleaseFee() public view returns (uint) {
-        return registerFee;
+        return releaseFee;
     }
     
     function isOpenForRelease() public view returns (bool) {
@@ -137,7 +141,7 @@ contract WillContract {
             delete benefit[addrBene[idx]];
         }
         delete addrBene;
-        registerFee = 0;
+        releaseFee = 0;
         minumumRelease = 0;
     }
     
@@ -156,7 +160,9 @@ contract WillContract {
     function releaseFor() external payable {
         require(state == State.ForRelease);
         require(benefit[msg.sender] == Beneficiary.Permitted);
+        require(msg.value >= releaseFee);
         benefit[msg.sender] = Beneficiary.Completed;
+        totalFee += msg.value;
         uint cnt=getNumberBeneficiaryState(Beneficiary.Completed);
         if (cnt >= minumumRelease) {
             state = State.Active;
@@ -164,6 +170,20 @@ contract WillContract {
         }
     }
     
+    // Watcher submits key and gets fee
+    function submitKey(uint key) public returns (bool) {
+        require(msg.sender == watcher);
+        require(state == State.Active);
+        require(key != 0);
+        state=State.Completed;
+        watcherKey = key;
+        // transfer money to watcher
+        return watcher.send(totalFee);
+    }
+    
+    function getKey() public view returns (uint) {
+        return watcherKey;
+    }
     
     
 }

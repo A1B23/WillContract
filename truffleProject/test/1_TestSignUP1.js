@@ -1,6 +1,8 @@
 // TODO as the amounts are all not big, can we do without BigNumber?
 let WillContract = artifacts.require("WillContract");
 let rCode = 0x124;
+var watcherAddress = 0;
+var watcherKey = 0x321;
 
 
 function sm(mes,state) {
@@ -166,7 +168,7 @@ function testAll(inp) {
 
 function setFee(dat) {
     // set a standard fee for all tests
-    dat['curFee'] = 10000;
+    dat['curFee'] = 1234234;
 }
 
 function setParams(dat, n_of_m) {
@@ -174,7 +176,7 @@ function setParams(dat, n_of_m) {
     setFee(dat);
     it("set params", async function () {
         let instance = await WillContract.deployed();
-        await instance.setCriteria(dat['curFee'], dat['nofm']);
+        await instance.setCriteria(dat['curFee'], dat['nofm'], watcherAddress);
 
         let val = await instance.getReleaseFee();
         assert.equal(val, dat['curFee'], "Invalid fee:" + val);
@@ -190,7 +192,8 @@ function checkRefCode() {
     });
 }
 
-contract('Check correct initial state', function (accounts) {
+contract('Check correct initial state and allocate watcherAddress', function (accounts) {
+    watcherAddress = accounts[9];
     var dat = init();
     testAll(dat);
     checkRefCode();
@@ -214,7 +217,7 @@ contract('Ensure only owner can change parameters', function (accounts) {
         let instance = await WillContract.deployed();
         let thrown = false;
         try {
-            await instance.setCriteria(dat['curFee'], dat['nofm'], { from: accounts[1] });
+            await instance.setCriteria(dat['curFee'], dat['nofm'], watcherAddress, { from: accounts[1] });
         } catch (e) {
             thrown = true;
         }
@@ -232,13 +235,13 @@ contract('Ensure no one can change parameters', function (accounts) {
     setFee(dat);
     it("should set params only once", async function () {
         let instance = await WillContract.deployed();
-        await instance.setCriteria(dat['curFee'], dat['nofm']);
+        await instance.setCriteria(dat['curFee'], dat['nofm'], watcherAddress);
         let val = await instance.getReleaseFee();
         assert.equal(val, dat['curFee'], "Invalid fee: " + val);
 
         let thrown = false;
         try {
-            await instance.setCriteria(dat['curFee']+1, dat['nofm']);
+            await instance.setCriteria(dat['curFee'] + 1, dat['nofm'], watcherAddress);
         } catch (e) {
             thrown = true;
         }
@@ -246,7 +249,7 @@ contract('Ensure no one can change parameters', function (accounts) {
 
         thrown = false;
         try {
-            await instance.setCriteria(dat['curFee'], dat['nofm']+1);
+            await instance.setCriteria(dat['curFee'], dat['nofm'] + 1, watcherAddress);
         } catch (e) {
             thrown = true;
         }
@@ -531,6 +534,21 @@ contract('Enabling 2:1 and then have one request release', function (accounts) {
     cpx2['misBene'] = 0;
     cpx2['misRelease'] = 0;
     testAll(cpx2);
+    it("should set the secret value and have the right watcherKey", async function () {
+        web3.eth.getBalance(watcherAddress, function (err, res) {
+            console.log("Watcher balance:"+res.toString(10)); 
+        });
+        let instance = await WillContract.deployed();
+        await instance.submitKey(watcherKey, { from: watcherAddress });
+        web3.eth.getBalance(watcherAddress, function (err, res) {
+            console.log("Watcher balance:"+res.toString(10)); 
+        });
+        let val = await instance.getKey();
+        assert.equal(val, watcherKey, "Invalid watcher key returned");
+        web3.eth.getBalance(watcherAddress, function (err, res) {
+            console.log("Watcher balance same as view has no cost:" +res.toString(10)); 
+        });
+    });
 
 });
 
