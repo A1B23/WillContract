@@ -70,11 +70,11 @@ contract WillContract {
     
     // Provide the number of successful/registered release requests
     // which must come from the list of approved beneficiaries only
-    function getNumberReleaseRequests() internal view returns (uint) {
+    function getNumberReleaseRequests(Beneficiary benState) internal view returns (uint) {
         uint cnt=0;
         for(uint idx =0; idx < addrBene.length; idx++) {
             if (addrBene[idx] != 0x00) {
-                if (benefit[addrBene[idx]] == Beneficiary.Completed) {
+                if (benefit[addrBene[idx]] == benState) {
                     cnt++;
                 }
             }
@@ -84,7 +84,16 @@ contract WillContract {
     
     function getNumberMissingForRelease() public view returns (uint) {
         require(state >= State.Register);
-        uint cnt = getNumberReleaseRequests();
+        uint cnt = getNumberReleaseRequests(Beneficiary.Completed);
+        if (cnt >= minumumRelease) {
+            return 0;
+        }
+        return minumumRelease-cnt;
+    }
+    
+    function getNumberMissingBeneficiaries() public view returns (uint) {
+        require(state >= State.Register);
+        uint cnt = getNumberReleaseRequests(Beneficiary.Permitted);
         if (cnt >= minumumRelease) {
             return 0;
         }
@@ -106,6 +115,8 @@ contract WillContract {
             delete benefit[addrBene[idx]];
         }
         delete addrBene;
+        registerFee = 0;
+        minumumRelease = 0;
     }
     
     function blockBeneficiary(address bene) public {
@@ -119,7 +130,7 @@ contract WillContract {
         require(state == State.ForRelease);
         require(benefit[bene] == Beneficiary.Permitted);
         benefit[bene] = Beneficiary.Completed;
-        uint cnt=getNumberReleaseRequests();
+        uint cnt=getNumberReleaseRequests(Beneficiary.Completed);
         if (cnt >= minumumRelease) {
             state = State.Active;
             // TODO here we throw the event for the listener!!!
