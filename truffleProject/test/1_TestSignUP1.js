@@ -1,5 +1,6 @@
 // TODO as the amounts are all not big, can we do without BigNumber?
 let WillContract = artifacts.require("WillContract");
+let rCode = 0x124;
 
 
 function sm(mes,state) {
@@ -154,7 +155,7 @@ function testAll(inp) {
             let instance = await WillContract.deployed();
             let thrown = false;
             try {
-                let val = await instance.releaseFor();
+                let val = await instance.releaseFor({ value: cpx['curFee'], from: accounts[1] });
             } catch (e) {
                 thrown = true;
             }
@@ -181,11 +182,11 @@ function setParams(dat, n_of_m) {
 }
 
 function checkRefCode() {
-    it("should have a refCode of 0x124", async function () {
+    it("should have a refCode of "+ rCode, async function () {
         let instance = await WillContract.deployed();
         let val = await instance.getReferenceCode();
         // set 0x124 or other refCode in 2_WillContact migration script!
-        assert.equal(val, 0x124, "Invalid refCode:" + val);
+        assert.equal(val, rCode, "Invalid refCode:" + val);
     });
 }
 
@@ -496,5 +497,40 @@ contract('Enabling is not possible for 2:1 after blocking 2, even trying to re-e
     var cpx3 = copy(cpx2);
     cpx3['state'] = 3;
     testAll(cpx3);
+});
+
+contract('Enabling 2:1 and then have one request release', function (accounts) {
+    var dat = registerN(accounts, 2, 1);
+    it("should enable releasing", async function () {
+        let instance = await WillContract.deployed();
+        await instance.enable();
+    });
+    var cpx = copy(dat);
+    cpx['state'] = 3;
+    testAll(cpx);
+    it("should release and trigger event", async function () {
+        let instance = await WillContract.deployed();
+        // Subscribe to a Solidity event
+        instance.ReleaseRequestsCompleted({}).watch((error, result) => {
+            console.log("event caught");
+            if (error) {
+                console.log(error);
+            }
+            // Once the event is triggered, store the result in the
+            // external variable
+            console.log("Event data: " + result.args.id + " and " + result.args.ref);
+            assert.equal(result.args.id, accounts[0], "Invalid owner address in event");
+            assert.equal(result.args.ref, rCode, "Invalid refCode returned");
+
+        });
+        await instance.releaseFor({ value: cpx['curFee'], from: accounts[1] });
+    });
+    var cpx2 = copy(cpx);
+    cpx2['state'] = 5;
+    cpx2['numBene'] = 2;
+    cpx2['misBene'] = 0;
+    cpx2['misRelease'] = 0;
+    testAll(cpx2);
+
 });
 
