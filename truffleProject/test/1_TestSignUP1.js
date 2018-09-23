@@ -8,7 +8,7 @@ function sm(mes,state) {
 function init() {
     var dat = {};
     dat['curFee'] = 0;
-    dat['state'] = 0;
+    dat['state'] = 1;
     dat['noBenef'] = 0;
     dat['curRelRequ'] = 0;
     dat['nofm'] = 0;
@@ -140,14 +140,13 @@ function testAll(inp) {
 }
 
 
-contract('WillContract1', function (accounts) {
+contract('Check correct initial state', function (accounts) {
     var dat = init();
     testAll(dat);
 });
 
-contract('WillContract2', function (accounts) {
+contract('Set parameters and check correct state', function (accounts) {
     var dat = init();
-    dat['state'] = 1;
     dat['nofm'] = 1;
     dat['curFee'] = 100;
     it("set params", async function () {
@@ -155,7 +154,7 @@ contract('WillContract2', function (accounts) {
         await instance.setCriteria(dat['curFee'], dat['nofm']);
 
         let val = await instance.getReleaseFee();
-        assert.equal(val, dat['curFee'], "nag" + val);
+        assert.equal(val, dat['curFee'], "Invalid fee:" + val);
     });
     var cpx = copy(dat);
     cpx['state'] = 2;
@@ -163,10 +162,29 @@ contract('WillContract2', function (accounts) {
     testAll(cpx);
 });
 
+contract('Ensure only owner can change parameters', function (accounts) {
+    var dat = init();
+    dat['nofm'] = 1;
+    dat['curFee'] = 100;
+    it("should fail to set params", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.setCriteria(dat['curFee'], dat['nofm'], { from: accounts[1] });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+        let val = await instance.getReleaseFee();
+        assert.equal(val, 0, "Invalid fee: " + val);
+    });
+    testAll(init());
+});
+
 contract('WillContract3', function (accounts) {
     var dat = init();
     //dat['state'] = 2;
-    testAll(dat);
+    //testAll(dat);
 });
 
 contract('WillContract4', function (accounts) {
@@ -174,12 +192,12 @@ contract('WillContract4', function (accounts) {
     dat['state'] = 1;
     dat['nofm'] = 1;
     dat['curFee'] = 250;
-    it("set params", async function () {
-        let instance = await WillContract.deployed();
-        await instance.setCriteria(dat['curFee'], dat['nofm']);
+    //it("set params", async function () {
+    //    let instance = await WillContract.deployed();
+    //    await instance.setCriteria(dat['curFee'], dat['nofm']);
 
-        let val = await instance.getReleaseFee();
-        assert.equal(val, dat['curFee'], "nag" + val);
-    });
-    testAll(dat);
+    //    let val = await instance.getReleaseFee();
+    //    assert.equal(val, dat['curFee'], "nag" + val);
+    //});
+    //testAll(dat);
 });

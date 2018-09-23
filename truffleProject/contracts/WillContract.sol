@@ -24,7 +24,7 @@ contract WillContract {
     // This is the address of the owner who controls the main state
     address owner;
     
-    uint minumumRelease = 0;
+    uint8 minumumRelease = 0;
 
     
     constructor() public {
@@ -44,7 +44,7 @@ contract WillContract {
     
     function registerBeneficiary(address bene) public {
         require(msg.sender == owner);
-        // TODO maybe optimse?
+        // Set a limit to it
         require(addrBene.length < 255);
         // A fee must be set before the first registration, else
         // a quick beneficiary may get through with zero fees after registering here
@@ -108,17 +108,17 @@ contract WillContract {
         delete addrBene;
     }
     
-    function blockBeneficiary(address bene) public view returns (bool) {
+    function blockBeneficiary(address bene) public {
         require(msg.sender == owner);
         require(state < State.Active);
         require(benefit[bene] < Beneficiary.Completed);
-        benefit[bene] < Beneficiary.Blocked;
+        benefit[bene] = Beneficiary.Blocked;
     }
     
     function releaseFor(address bene) public payable {
         require(state == State.ForRelease);
         require(benefit[bene] == Beneficiary.Permitted);
-        benefit[bene] == Beneficiary.Completed;
+        benefit[bene] = Beneficiary.Completed;
         uint cnt=getNumberReleaseRequests();
         if (cnt >= minumumRelease) {
             state = State.Active;
