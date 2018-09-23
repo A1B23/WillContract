@@ -168,14 +168,8 @@ function setFee(dat) {
     dat['curFee'] = 10000;
 }
 
-contract('Check correct initial state', function (accounts) {
-    var dat = init();
-    testAll(dat);
-});
-
-contract('Set parameters and check correct state', function (accounts) {
-    var dat = init();
-    dat['nofm'] = 1;
+function setParams(dat, n_of_m) {
+    dat['nofm'] = n_of_m;
     setFee(dat);
     it("set params", async function () {
         let instance = await WillContract.deployed();
@@ -184,6 +178,16 @@ contract('Set parameters and check correct state', function (accounts) {
         let val = await instance.getReleaseFee();
         assert.equal(val, dat['curFee'], "Invalid fee:" + val);
     });
+}
+
+contract('Check correct initial state', function (accounts) {
+    var dat = init();
+    testAll(dat);
+});
+
+contract('Set parameters and check correct state', function (accounts) {
+    var dat = init();
+    setParams(dat,1);
     var cpx = copy(dat);
     cpx['state'] = 2;
     cpx['misRelease'] = 1;
@@ -248,15 +252,7 @@ contract('Ensure no one can change parameters', function (accounts) {
 
 contract('Register 1 beneficiary for immediate release', function (accounts) {
     var dat = init();
-    dat['nofm'] = 1;
-    setFee(dat);
-    it("set params", async function () {
-        let instance = await WillContract.deployed();
-        await instance.setCriteria(dat['curFee'], dat['nofm']);
-
-        let val = await instance.getReleaseFee();
-        assert.equal(val, dat['curFee'], "Invalid fee:" + val);
-    });
+    setParams(dat,1);
     var cpx = copy(dat);
     cpx['state'] = 2;
     it("register a beneficiary", async function () {
@@ -272,15 +268,7 @@ contract('Register 1 beneficiary for immediate release', function (accounts) {
 
 contract('Owner may be a beneficiary as well', function (accounts) {
     var dat = init();
-    dat['nofm'] = 1;
-    setFee(dat);
-    it("set params", async function () {
-        let instance = await WillContract.deployed();
-        await instance.setCriteria(dat['curFee'], dat['nofm']);
-
-        let val = await instance.getReleaseFee();
-        assert.equal(val, dat['curFee'], "Invalid fee:" + val);
-    });
+    setParams(dat,1);
     var cpx = copy(dat);
     cpx['state'] = 2;
     it("register a beneficiary", async function () {
@@ -296,15 +284,7 @@ contract('Owner may be a beneficiary as well', function (accounts) {
 
 contract('Ensure only owner can register beneficiaries ', function (accounts) {
     var dat = init();
-    dat['nofm'] = 1;
-    setFee(dat);
-    it("set params", async function () {
-        let instance = await WillContract.deployed();
-        await instance.setCriteria(dat['curFee'], dat['nofm']);
-
-        let val = await instance.getReleaseFee();
-        assert.equal(val, dat['curFee'], "Invalid fee:" + val);
-    });
+    setParams(dat,1);
     var cpx = copy(dat);
     cpx['state'] = 2;
     it("should fail to register a beneficiary", async function () {
@@ -332,41 +312,40 @@ contract('Ensure only owner can register beneficiaries ', function (accounts) {
     testAll(cpx);
 });
 
-function register2(accounts) {
+function registerN(accounts,numBene,nofm) {
     var dat = init();
-    dat['nofm'] = 1;
-    setFee(dat);
-    it("set params", async function () {
-        let instance = await WillContract.deployed();
-        await instance.setCriteria(dat['curFee'], dat['nofm']);
-
-        let val = await instance.getReleaseFee();
-        assert.equal(val, dat['curFee'], "Invalid fee:" + val);
-    });
+    setParams(dat,nofm);
     var cpx = copy(dat);
     cpx['state'] = 2;
-    it("register two beneficiaries", async function () {
+    it("register " + numBene+" beneficiaries", async function () {
         let instance = await WillContract.deployed();
-        await instance.registerBeneficiary(accounts[0]);
-        await instance.registerBeneficiary(accounts[1]);
+        // we assume enough accounts exist, if not the test fails anyway, so no need to check
+        for (var idx = 0; idx < numBene; idx++) {
+            await instance.registerBeneficiary(accounts[idx]);
+        }
     });
     var cpx2 = copy(cpx);
-    cpx['misRelease'] = 1;
-    cpx['misBene'] = 0;
-    cpx['numBene'] = 2;
+    cpx['misRelease'] = nofm;
+    cpx['misBene'] = nofm - numBene;
+    if (cpx['misBene'] < 0) {
+        cpx['misBene'] = 0;
+    }
+    cpx['numBene'] = numBene;
     testAll(cpx);
     return cpx;
 }
 
-contract('Can add more than minimum beneficiary needed', function (accounts) {
-    register2(accounts);
+contract('Can add more than minimum beneficiary needed 2:1', function (accounts) {
+    registerN(accounts,2,1);
 });
 
-contract('Check that system reset works after registering 2', function (accounts) {
-    var cpx = copy(register2(accounts));
+contract('Check that system reset works after registering 2:1 and then register 5:3', function (accounts) {
+    registerN(accounts, 2, 1);
     it("should set all to zero", async function () {
         let instance = await WillContract.deployed();
         await instance.reset();
     });
     testAll(init());
+    registerN(accounts, 5, 3);
 });
+
