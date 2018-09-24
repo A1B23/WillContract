@@ -515,7 +515,7 @@ contract('Enabling 2:1 and then have one request release', function (accounts) {
         let instance = await WillContract.deployed();
         // Subscribe to a Solidity event
         instance.ReleaseRequestsCompleted({}).watch((error, result) => {
-            console.log("event caught");
+            console.log("event caught: verify owner address and refCode");
             if (error) {
                 console.log(error);
             }
@@ -524,7 +524,6 @@ contract('Enabling 2:1 and then have one request release', function (accounts) {
             console.log("Event data: " + result.args.id + " and " + result.args.ref);
             assert.equal(result.args.id, accounts[0], "Invalid owner address in event");
             assert.equal(result.args.ref, rCode, "Invalid refCode returned");
-
         });
         await instance.releaseFor({ value: cpx['curFee'], from: accounts[1] });
     });

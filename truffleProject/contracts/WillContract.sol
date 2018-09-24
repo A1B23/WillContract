@@ -1,11 +1,14 @@
-pragma solidity ^0.4.24;
+ pragma solidity ^0.4.24;
 
 contract WillContract {
     
-    uint constant maxBene = 100; // this is a hard limit to avoid gas overflow
+    uint constant maxBene = 10; // this is a hard limit to avoid gas overflow
     uint codeRef = 0;
     address watcher=0;
     uint watcherKey=0;
+    uint8 regBene=0;
+    uint8 blockBene=0;
+    uint8 doneBene=0;
     
     // This state defines the control by the owner and the progressive
     // stages even if the owner does not act anymore 
@@ -16,7 +19,7 @@ contract WillContract {
     // be Permitted to contribute by the owner, and can make only one contribution
     enum Beneficiary {Undef, Permitted, Completed, Blocked} 
     mapping (address => Beneficiary) benefit;
-    address [] addrBene;
+    address[maxBene] addrBene;
  
     // This sets the fee which beneficiaries must pay the trusted controller
     // It is outside this contract to resove dispoutes in a m to n case why
@@ -60,7 +63,7 @@ contract WillContract {
     function registerBeneficiary(address bene) public {
         require(msg.sender == owner);
         // Set a limit to it
-        require(addrBene.length < maxBene);
+        require(regBene+blockBene < maxBene);
         // A fee must be set before the first registration, else
         // a quick beneficiary may get through with zero fees after registering here
         require(state == State.Register);
@@ -68,11 +71,12 @@ contract WillContract {
         // Registration is only once, otherwise owner must reset everything
         require(benefit[bene] < Beneficiary.Permitted);
         benefit[bene] = Beneficiary.Permitted;
-        addrBene.push(bene);
+        addrBene[regBene+blockBene] = bene;
+        regBene++;
     }
     
     function getNumberBeneficiaries() public view returns (uint) {
-        return getNumberBeneficiaryState(Beneficiary.Completed) + getNumberBeneficiaryState(Beneficiary.Permitted);
+        return regBene+doneBene;
     }
     
     function getReferenceCode() public view returns (uint) {
@@ -87,39 +91,23 @@ contract WillContract {
         return state == State.ForRelease;
     }
     
-    // Provide the number of successful/registered release requests
-    // which must come from the list of approved beneficiaries only
-    function getNumberBeneficiaryState(Beneficiary benState) internal view returns (uint) {
-        uint cnt=0;
-        for(uint idx =0; idx < addrBene.length; idx++) {
-            if (addrBene[idx] != 0x00) {
-                if (benefit[addrBene[idx]] == benState) {
-                    cnt++;
-                }
-            }
-        }
-        return cnt;
-    }
-    
     // provide the number of missing release request before release is triggered
     function getNumberMissingForRelease() public view returns (uint) {
         //state must be in registration or higher 
         require(state >= State.Register);
-        uint cnt = getNumberBeneficiaryState(Beneficiary.Completed);
-        if (cnt >= minumumRelease) {
+        if (doneBene >= minumumRelease) {
             return 0;
         }
-        return minumumRelease-cnt;
+        return minumumRelease-doneBene;
     }
     
     // provide the number of missing beneficiary registrations
     function getNumberMissingBeneficiaries() public view returns (uint) {
         require(state >= State.Register);
-        uint cnt = getNumberBeneficiaryState(Beneficiary.Permitted);
-        if (cnt >= minumumRelease) {
+        if (regBene >= minumumRelease) {
             return 0;
         }
-        return minumumRelease-cnt;
+        return minumumRelease-regBene;
     }
     
     // Once enough/all beneficiaries are registered, owner can close
@@ -127,7 +115,7 @@ contract WillContract {
     function enable() public {
         require(msg.sender == owner);
         require(state == State.Register);
-        require(getNumberBeneficiaryState(Beneficiary.Permitted) >= minumumRelease);
+        require(regBene >= minumumRelease);
         state = State.ForRelease;
     }
     
@@ -137,12 +125,14 @@ contract WillContract {
         require(msg.sender == owner);
         require(state < State.Active);
         state = State.Fee;
-        for (uint idx=0; idx<addrBene.length;idx++) {
+        for(uint8 idx=0; idx<regBene+blockBene;idx++) {
             delete benefit[addrBene[idx]];
         }
-        delete addrBene;
         releaseFee = 0;
         minumumRelease = 0;
+        regBene=0;
+        doneBene=0;
+        blockBene=0;
     }
     
     // Owner may block certain beneficiary/address from further use
@@ -152,22 +142,27 @@ contract WillContract {
         require(state < State.Active);
         require(benefit[bene] < Beneficiary.Completed);
         benefit[bene] = Beneficiary.Blocked;
+        blockBene++;
+        regBene--;
     }
     
     // Any registered beneficiary can pay the required fee to register
     // the request for release. When the minimum of such requests is reached
     // an event is triggered to inform the custodian
-    function releaseFor() external payable {
+    function releaseFor() external payable returns (uint8) {
         require(state == State.ForRelease);
         require(benefit[msg.sender] == Beneficiary.Permitted);
         require(msg.value >= releaseFee);
+        require(regBene > 0);
         benefit[msg.sender] = Beneficiary.Completed;
         totalFee += msg.value;
-        uint cnt=getNumberBeneficiaryState(Beneficiary.Completed);
-        if (cnt >= minumumRelease) {
+        doneBene++;
+        regBene--;
+        if (doneBene >= minumumRelease) {
             state = State.Active;
             emit ReleaseRequestsCompleted(owner, codeRef);
         }
+        return doneBene;
     }
     
     // Watcher submits key and gets fee
