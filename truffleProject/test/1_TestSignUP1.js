@@ -157,7 +157,7 @@ function testAll(inp) {
             let instance = await WillContract.deployed();
             let thrown = false;
             try {
-                let val = await instance.releaseFor({ value: cpx['curFee'], from: accounts[1] });
+                let val = await instance.releaseFor({ value: cp['curFee'], from: accounts[1] });
             } catch (e) {
                 thrown = true;
             }
@@ -207,6 +207,34 @@ contract('Set parameters and check correct state', function (accounts) {
     cpx['misRelease'] = 1;
     cpx['misBene'] = 1;
     testAll(cpx);
+});
+
+contract('Incorrect parameters', function (accounts) {
+    var dat = init();
+    dat['nofm'] = 11;
+    setFee(dat);
+    it("should fail to set 11 n_of_m", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.setCriteria(dat['curFee'], dat['nofm'], watcherAddress);
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+    var dat2 = init();
+    dat2['nofm'] = 1;
+    it("should fail to set zero a watcher", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.setCriteria(dat2['curFee'], dat2['nofm'], 0x00);
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
 });
 
 contract('Ensure only owner can change parameters', function (accounts) {
@@ -266,7 +294,7 @@ contract('Ensure no one can change parameters', function (accounts) {
     checkRefCode();
 });
 
-contract('Register 1 beneficiary for immediate release', function (accounts) {
+contract('Register 1 beneficiary for immediate release, fail zero address', function (accounts) {
     var dat = init();
     setParams(dat,1);
     var cpx = copy(dat);
@@ -274,6 +302,16 @@ contract('Register 1 beneficiary for immediate release', function (accounts) {
     it("register a beneficiary", async function () {
         let instance = await WillContract.deployed();
         await instance.registerBeneficiary(accounts[1]);
+    });
+    it("should reject zero address without chaning state", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.registerBeneficiary(0x0);
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
     });
     var cpx2 = copy(cpx);
     cpx['misRelease'] = 1;
@@ -380,6 +418,37 @@ contract('Cannot register beneficiary twice', function (accounts) {
 
 contract('Check that system reset works after registering 2:1 and then register 5:3', function (accounts) {
     registerN(accounts, 2, 1);
+    it("should not allow non-owner to reset, even if registered", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.reset({ from: accounts[1] });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+    it("should not allow non-owner to reset, even if watcher", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.reset({ from: watcherAddress });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+
+    it("should not allow non-owner to reset, even if 0", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.reset({ from: address(0) });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
     it("should set all to zero", async function () {
         let instance = await WillContract.deployed();
         await instance.reset();
@@ -389,12 +458,65 @@ contract('Check that system reset works after registering 2:1 and then register 
     checkRefCode();
 });
 
-contract('Enabling is possible 2:1', function (accounts) {
+contract('Enabling is possible, try 2:1, but dont allow anyone else than owner ', function (accounts) {
     var dat = registerN(accounts, 2, 1);
+    it("should not allow non-owner to enable, even if registered", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.enable({ from: accounts[1] });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+    it("should not allow non-owner to enable, even if watcher", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.enable({ from: watcherAddress });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+
+    it("should not allow non-owner to enable, even if 0", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.enable({ from: address(0) });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+    it("should throw error on trying to request release before release enabled", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            let val = await instance.releaseFor({ value: dat['curFee'], from: accounts[1] });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
     it("should enable releasing", async function () {
         let instance = await WillContract.deployed();
         await instance.enable();
     });
+
+    it("should throw error on trying to request release for non-permitted beneficiar", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            let val = await instance.releaseFor({ value: dat['curFee'], from: accounts[3] });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+
     var cpx = copy(dat);
     cpx['state'] = 3;
     testAll(cpx);
@@ -449,9 +571,71 @@ contract('Enabling is still possible for 2:1 after blocking 1', function (accoun
 
 contract('Enabling is not possible for 2:1 after blocking 2, even trying to re-enable 1 fails, after all register and enable work again', function (accounts) {
     var dat = registerN(accounts, 2, 1);
-    it("should block all registered beneficiary and not allow re-registering any", async function () {
+    it("should not allow non-owner to block, even if registered", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.blockBeneficiary(accounts[1],{ from: accounts[1] });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+    it("should not allow non-owner to block, even if watcher", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.blockBeneficiary(accounts[1],{ from: watcherAddress });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+
+    it("should not allow non-owner to block, even if 0", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.blockBeneficiary(accounts[1],{ from: address(0) });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+
+    it("should not allow address to be blocked twice", async function () {
         let instance = await WillContract.deployed();
         await instance.blockBeneficiary(accounts[1]);
+        let thrown = false;
+        try {
+            await instance.blockBeneficiary(accounts[1]);
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+
+    it("should not allow non-registered address or zero address to be blocked", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.blockBeneficiary(accounts[5]);
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+        thrown = false;
+        try {
+            await instance.blockBeneficiary(address(0));
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+
+    it("should block all registered beneficiary and not allow re-registering any", async function () {
+        let instance = await WillContract.deployed();
+        //done above in porevious case!await instance.blockBeneficiary(accounts[1]);
         await instance.blockBeneficiary(accounts[0]);
         let thrown = false;
         try {
@@ -511,6 +695,26 @@ contract('Enabling 2:1 and then have one request release', function (accounts) {
     var cpx = copy(dat);
     cpx['state'] = 3;
     testAll(cpx);
+    it("should not allow watcher to set key before quota reached", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.submitKey(watcherKey, { from: watcherAddress });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+    it("should not release and trigger event for fee not reached", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.releaseFor({ value: cpx['curFee']-1, from: accounts[1] });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
     it("should release and trigger event", async function () {
         let instance = await WillContract.deployed();
         // Subscribe to a Solidity event
@@ -527,12 +731,64 @@ contract('Enabling 2:1 and then have one request release', function (accounts) {
         });
         await instance.releaseFor({ value: cpx['curFee'], from: accounts[1] });
     });
+    it("should not allow blocking anymore, as state is active", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.blockBeneficiary(accounts[1]);
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
     var cpx2 = copy(cpx);
     cpx2['state'] = 5;
     cpx2['numBene'] = 2;
     cpx2['misBene'] = 0;
     cpx2['misRelease'] = 0;
     testAll(cpx2);
+    it("should not allow non-watcher to set key, even if registered", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.submitKey(watcherKey, { from: accounts[1] });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+    it("should not allow non-watcher to set key, even if owner", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.submitKey(watcherKey);
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+
+    it("should not allow non-watcher to block, even if 0", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.submitKey(watcherKey, { from: address(0) });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+
+    it("should not allow key to be zero", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.submitKey(0x0, { from: watcherAddress });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
     it("should set the secret value and have the right watcherKey", async function () {
         web3.eth.getBalance(watcherAddress, function (err, res) {
             console.log("Watcher balance:"+res.toString(10)); 
@@ -546,6 +802,146 @@ contract('Enabling 2:1 and then have one request release', function (accounts) {
         assert.equal(val, watcherKey, "Invalid watcher key returned");
         web3.eth.getBalance(watcherAddress, function (err, res) {
             console.log("Watcher balance same as view has no cost:" +res.toString(10)); 
+        });
+    });
+
+});
+
+contract('Enabling 3:2 and then have two request release', function (accounts) {
+    var dat = registerN(accounts, 3, 2);
+    it("should enable releasing", async function () {
+        let instance = await WillContract.deployed();
+        await instance.enable();
+    });
+    it("should have two missing beneficiary request", async function () {
+        let instance = await WillContract.deployed();
+        let val = await instance.getNumberMissingForRelease();
+        assert.equal(val, 2, "Wrong number of missing for release");
+    });
+    var cpx = copy(dat);
+    cpx['state'] = 3;
+    testAll(cpx);
+    it("should not allow watcher to set key before quota reached", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.submitKey(watcherKey, { from: watcherAddress });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+    it("should not release and trigger event for fee not reached", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.releaseFor({ value: cpx['curFee'] - 1, from: accounts[2] });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+    it("should release on", async function () {
+        let instance = await WillContract.deployed();
+        await instance.releaseFor({ value: cpx['curFee'], from: accounts[1] });
+    });
+    it("should have one missing beneficiary request", async function () {
+        let instance = await WillContract.deployed();
+        let val = await instance.getNumberMissingForRelease();
+        assert.equal(val, 1, "Wrong number of missing for release");
+    });
+    it("should release and trigger event", async function () {
+        let instance = await WillContract.deployed();
+        // Subscribe to a Solidity event
+        instance.ReleaseRequestsCompleted({}).watch((error, result) => {
+            console.log("event caught: verify owner address and refCode");
+            if (error) {
+                console.log(error);
+            }
+            // Once the event is triggered, store the result in the
+            // external variable
+            console.log("Event data: " + result.args.id + " and " + result.args.ref);
+            assert.equal(result.args.id, accounts[0], "Invalid owner address in event");
+            assert.equal(result.args.ref, rCode, "Invalid refCode returned");
+        });
+        await instance.releaseFor({ value: cpx['curFee'], from: accounts[2] });
+    });
+    it("should have one missing beneficiary request", async function () {
+        let instance = await WillContract.deployed();
+        let val = await instance.getNumberMissingForRelease();
+        assert.equal(val, 0, "Wrong number of missing for release");
+    });
+    it("should not allow blocking anymore, as state is active", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.blockBeneficiary(accounts[1]);
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+    var cpx2 = copy(cpx);
+    cpx2['state'] = 5;
+    cpx2['numBene'] = 3;
+    cpx2['misBene'] = 0;
+    cpx2['misRelease'] = 0;
+    testAll(cpx2);
+    it("should not allow non-watcher to set key, even if registered", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.submitKey(watcherKey, { from: accounts[1] });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+    it("should not allow non-watcher to set key, even if owner", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.submitKey(watcherKey);
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+
+    it("should not allow non-watcher to block, even if 0", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.submitKey(watcherKey, { from: address(0) });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+
+    it("should not allow key to be zero", async function () {
+        let instance = await WillContract.deployed();
+        let thrown = false;
+        try {
+            await instance.submitKey(0x0, { from: watcherAddress });
+        } catch (e) {
+            thrown = true;
+        }
+        assert.isTrue(thrown);
+    });
+    it("should set the secret value and have the right watcherKey", async function () {
+        web3.eth.getBalance(watcherAddress, function (err, res) {
+            console.log("Watcher balance:" + res.toString(10));
+        });
+        let instance = await WillContract.deployed();
+        await instance.submitKey(watcherKey, { from: watcherAddress });
+        web3.eth.getBalance(watcherAddress, function (err, res) {
+            console.log("Watcher balance:" + res.toString(10));
+        });
+        let val = await instance.getKey();
+        assert.equal(val, watcherKey, "Invalid watcher key returned");
+        web3.eth.getBalance(watcherAddress, function (err, res) {
+            console.log("Watcher balance same as view has no cost:" + res.toString(10));
         });
     });
 

@@ -2,7 +2,7 @@
 
 contract WillContract {
     
-    uint constant maxBene = 10; // this is a hard limit to avoid gas overflow
+    uint8 constant maxBene = 10; // this is a hard limit to avoid gas overflow
     uint codeRef = 0;
     address watcher=0;
     uint watcherKey=0;
@@ -50,7 +50,7 @@ contract WillContract {
         // there is no need to register the n, as it is the length of the array
         require(state == State.Fee);
         require(msg.sender == owner);
-        require(m_out_of_n < maxBene);
+        require(m_out_of_n <= maxBene);
         require(trustedWatcher > 0);
         watcher = trustedWatcher;
         // zero is allowed if trustd party is charity :-)
@@ -104,10 +104,10 @@ contract WillContract {
     // provide the number of missing beneficiary registrations
     function getNumberMissingBeneficiaries() public view returns (uint) {
         require(state >= State.Register);
-        if (regBene >= minumumRelease) {
+        if (regBene + doneBene >= minumumRelease) {
             return 0;
         }
-        return minumumRelease-regBene;
+        return minumumRelease-(regBene+doneBene);
     }
     
     // Once enough/all beneficiaries are registered, owner can close
@@ -140,8 +140,11 @@ contract WillContract {
     function blockBeneficiary(address bene) public {
         require(msg.sender == owner);
         require(state < State.Active);
-        require(benefit[bene] < Beneficiary.Completed);
+        require(benefit[bene] == Beneficiary.Permitted);
         benefit[bene] = Beneficiary.Blocked;
+        //Blocking is allowed even if it drops the count below
+        //n_of_m and contract becomes unusable because max 10
+        //as a way to record the unusability of the contract going forward
         blockBene++;
         regBene--;
     }
@@ -153,7 +156,6 @@ contract WillContract {
         require(state == State.ForRelease);
         require(benefit[msg.sender] == Beneficiary.Permitted);
         require(msg.value >= releaseFee);
-        require(regBene > 0);
         benefit[msg.sender] = Beneficiary.Completed;
         totalFee += msg.value;
         doneBene++;
