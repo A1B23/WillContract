@@ -9,6 +9,7 @@ contract WillContract {
     uint8 regBene=0;
     uint8 blockBene=0;
     uint8 doneBene=0;
+    uint docHash=0;
     
     // This state defines the control by the owner and the progressive
     // stages even if the owner does not act anymore 
@@ -46,7 +47,7 @@ contract WillContract {
         state = State.Fee;
     }
 
-    function setCriteria(uint fee, uint8 m_out_of_n,address trustedWatcher) public {
+    function setCriteria(uint fee, uint8 m_out_of_n,address trustedWatcher,uint refHash) public {
         // there is no need to register the n, as it is the length of the array
         require(state == State.Fee);
         require(msg.sender == owner);
@@ -58,6 +59,7 @@ contract WillContract {
         minumumRelease = m_out_of_n;
         // the parameters can onlyb eset once, and the next stage begins
         state = State.Register;
+        docHash = refHash;
     }
     
     function registerBeneficiary(address bene) public {
@@ -81,6 +83,10 @@ contract WillContract {
     
     function getReferenceCode() public view returns (uint) {
         return codeRef;
+    }
+    
+    function getReferenceHash() public view returns (uint) {
+        return docHash;
     }
     
     function getReleaseFee() public view returns (uint) {

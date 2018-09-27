@@ -3,6 +3,7 @@ let WillContract = artifacts.require("WillContract");
 let rCode = 0x124;
 var watcherAddress = 0;
 var watcherKey = 0x321;
+var docHash = 0x9876
 
 
 function sm(mes,state) {
@@ -176,10 +177,13 @@ function setParams(dat, n_of_m) {
     setFee(dat);
     it("set params", async function () {
         let instance = await WillContract.deployed();
-        await instance.setCriteria(dat['curFee'], dat['nofm'], watcherAddress);
+        await instance.setCriteria(dat['curFee'], dat['nofm'], watcherAddress,docHash);
 
         let val = await instance.getReleaseFee();
         assert.equal(val, dat['curFee'], "Invalid fee:" + val);
+
+        let val2 = await instance.getReferenceHash();
+        assert.equal(val2, docHash, "Invalid docHash:" + val2);
     });
 }
 
@@ -194,12 +198,24 @@ function checkRefCode() {
 
 contract('Check correct initial state and allocate watcherAddress', function (accounts) {
     watcherAddress = accounts[9];
+    it("should have a refCode of " + rCode, async function () {
+        let instance = await WillContract.deployed();
+        console.log(instance.address);
+    });
     var dat = init();
     testAll(dat);
+    it("should have a refCode of " + rCode, async function () {
+        let instance = await WillContract.deployed();
+        console.log(instance.address);
+    });
     checkRefCode();
 });
 
 contract('Set parameters and check correct state', function (accounts) {
+    it("should have a refCode of " + rCode, async function () {
+        let instance = await WillContract.deployed();
+        console.log(instance.address);
+    });
     var dat = init();
     setParams(dat,1);
     var cpx = copy(dat);
@@ -217,7 +233,7 @@ contract('Incorrect parameters', function (accounts) {
         let instance = await WillContract.deployed();
         let thrown = false;
         try {
-            await instance.setCriteria(dat['curFee'], dat['nofm'], watcherAddress);
+            await instance.setCriteria(dat['curFee'], dat['nofm'], watcherAddress,docHash);
         } catch (e) {
             thrown = true;
         }
@@ -229,7 +245,7 @@ contract('Incorrect parameters', function (accounts) {
         let instance = await WillContract.deployed();
         let thrown = false;
         try {
-            await instance.setCriteria(dat2['curFee'], dat2['nofm'], 0x00);
+            await instance.setCriteria(dat2['curFee'], dat2['nofm'], 0x00,docHash);
         } catch (e) {
             thrown = true;
         }
@@ -245,7 +261,7 @@ contract('Ensure only owner can change parameters', function (accounts) {
         let instance = await WillContract.deployed();
         let thrown = false;
         try {
-            await instance.setCriteria(dat['curFee'], dat['nofm'], watcherAddress, { from: accounts[1] });
+            await instance.setCriteria(dat['curFee'], dat['nofm'], watcherAddress, docHash,{ from: accounts[1] });
         } catch (e) {
             thrown = true;
         }
@@ -263,13 +279,13 @@ contract('Ensure no one can change parameters', function (accounts) {
     setFee(dat);
     it("should set params only once", async function () {
         let instance = await WillContract.deployed();
-        await instance.setCriteria(dat['curFee'], dat['nofm'], watcherAddress);
+        await instance.setCriteria(dat['curFee'], dat['nofm'], watcherAddress,docHash);
         let val = await instance.getReleaseFee();
         assert.equal(val, dat['curFee'], "Invalid fee: " + val);
 
         let thrown = false;
         try {
-            await instance.setCriteria(dat['curFee'] + 1, dat['nofm'], watcherAddress);
+            await instance.setCriteria(dat['curFee'] + 1, dat['nofm'], watcherAddress,docHash);
         } catch (e) {
             thrown = true;
         }
@@ -277,7 +293,7 @@ contract('Ensure no one can change parameters', function (accounts) {
 
         thrown = false;
         try {
-            await instance.setCriteria(dat['curFee'], dat['nofm'] + 1, watcherAddress);
+            await instance.setCriteria(dat['curFee'], dat['nofm'] + 1, watcherAddress,docHash);
         } catch (e) {
             thrown = true;
         }
@@ -718,6 +734,7 @@ contract('Enabling 2:1 and then have one request release', function (accounts) {
     it("should release and trigger event", async function () {
         let instance = await WillContract.deployed();
         // Subscribe to a Solidity event
+        console.log(instance.address);
         instance.ReleaseRequestsCompleted({}).watch((error, result) => {
             console.log("event caught: verify owner address and refCode");
             if (error) {
