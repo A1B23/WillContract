@@ -4,7 +4,7 @@ from web3.auto import Web3
 
 import time
 
-w3 = Web3(HTTPProvider('http://localhost:8555'))
+w3 = Web3(HTTPProvider('http://localhost:8545'))
 # #open("C:/Users/XXX/Documents/50_states.csv",mode='w')
 # with open("C:/BlockChainSG/project_blockchain/Will_contract/project/truffleProject/build/contracts/WillContract.json", mode='r') as abi_definition:
 #     abi = json.load(abi_definition)

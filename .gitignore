@@ -1,3 +1,9 @@
 truffleProject/build*
 truffleProject/coverage*
 truffleProject/node_modules*
+server/.idea*
+server/msv*
+server/sol*
+
+
+
