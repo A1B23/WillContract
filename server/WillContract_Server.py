@@ -1,27 +1,42 @@
 import json
 from flask import Flask, request, jsonify, render_template
 from web3 import Web3
-from web3.providers.rpc import HTTPProvider
 from solc import compile_source
 
 # web3.py instance
 w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:8545"))
-w3.eth.defaultAccount = w3.eth.accounts[0]
+#w3.eth.defaultAccount = w3.eth.accounts[0]
 
-# Get stored abi and contract_address
-# with open("data.json", 'r') as f:
-#     datastore = json.load(f)
-#     abi = datastore["abi"]
-#     contract_address = datastore["contract_address"]
-
-# Initializing flask app
 
 app = Flask(__name__)
 contr = {}
 
 
 def err(mes):
-    return jsonify({"Error":mes}),400
+    return jsonify({"Error":mes}), 400
+
+
+def convert(data, length):
+    if data[:2] == "0x":
+        data = data[2:]
+    if len(data) > length:
+        data = data[:length]
+    else:
+        data = data.rjust(length, '0')
+    if data[:2] != "0x":
+        data = "0x"+data
+    return data
+
+
+def getInterface(refCode):
+    refCode1 = convert(refCode, 32)
+    json_data = open(refCode1 + "_abi.json").read()
+    abi = json.loads(json_data)
+    f = open(refCode1 + "_address.dat", "r")
+    addr = f.read()
+    f.close()
+    return abi, addr
+
 
 # api to set new user every api call
 
@@ -30,9 +45,13 @@ def index():
     return render_template("WillContract.html")
 
 
-@app.route("/deploy/<refCode>", methods=['GET'])
-def deploy(refCode):
+@app.route("/deploy/<address>/<refCode>", methods=['GET'])
+def deploy(address, refCode):
     try:
+        try:
+            address = w3.toChecksumAddress(address)
+        except Exception:
+            return err("Invalid address parameter")
         # Solidity source code
         file = open("../truffleproject/contracts/WillContract.sol", "r")
         contract_source_code = file.read()
@@ -47,85 +66,110 @@ def deploy(refCode):
         )
 
         # Get transaction hash from deployed contract
-        tx_hash = contract.constructor(0x123).transact()
+        refCode1 = convert(refCode,32)
+        refCode = int(refCode1,16)
+
+        with open(refCode1+"_abi.json","w") as outfile:
+            json.dump(contract_interface['abi'], outfile)
+
+        tx_hash = contract.constructor(refCode).transact({'from': address})
         # Get tx receipt to get contract address
         tx_receipt = w3.eth.getTransactionReceipt(tx_hash)
         contr.update({"abi": contract_interface['abi'], "address":tx_receipt['contractAddress']})
 
+        f = open(refCode1+"_address.dat","w")
+        f.write(str(tx_receipt['contractAddress']))
+        f.close()
+
         return jsonify({"ContractAddress": str(tx_receipt['contractAddress']),
-            "Block": str(tx_receipt['blockNumber']),
-            "TXHash":  str(Web3.toHex(tx_receipt['transactionHash'])),
-            "TXIndex": str(tx_receipt['transactionIndex'])}), 200
+            "Block-No": str(tx_receipt['blockNumber']),
+            "TX-Hash":  str(Web3.toHex(tx_receipt['transactionHash'])),
+            "TX-Index": str(tx_receipt['transactionIndex'])}), 200
     except Exception:
         return err('Deployment failed, contact admin')
 
-@app.route("/query/<refCode>", methods=['GET'])
-def query(refCode):
+
+@app.route("/query/<refCode>/<qtype>", methods=['GET'])
+def query(refCode, qtype):
     try:
-        contract_instance = w3.eth.contract(address=contr["address"], abi=contr['abi'])
+        abi, addr = getInterface(refCode)
+        contract_instance = w3.eth.contract(address=addr, abi=abi)
     except Exception:
         return err("No contract found")
     ret = "n/a"
-    if refCode == "fee":
-        ret = str(contract_instance.functions.getReleaseFee().call())
-    elif refCode == "refCode":
-        ret = str(contract_instance.functions.getReferenceCode().call())
-    elif refCode == "numBene":
-        ret = str(contract_instance.functions.getNumberBeneficiaries().call())
-    elif refCode == "hash":
-        ret = str(hex(contract_instance.functions.getReferenceHash().call()))
-    elif refCode == "enabled":
-        ret = str(contract_instance.functions.isOpenForRelease().call())
-    return jsonify({refCode: ret})
+    try:
+        if qtype == "fee":
+            ret = str(contract_instance.functions.getReleaseFee().call())
+        elif qtype == "refCode":
+            ret = str(hex(contract_instance.functions.getReferenceCode().call()))
+        elif qtype == "numUser":
+            ret = str(contract_instance.functions.getNumberBeneficiaries().call())
+        elif qtype == "hash":
+            ret = str(hex(contract_instance.functions.getReferenceHash().call()))
+        elif qtype == "enabled":
+            ret = str(contract_instance.functions.isOpenForRelease().call())
+        elif qtype == "key":
+            ret = str(contract_instance.functions.getKey().call())
+        elif qtype == "nofm":
+            ret = str(contract_instance.functions.getNumberMissingBeneficiaries().call())
+        return jsonify({qtype: ret})
+    except Exception:
+        return err("Query failed, likely no refcode or invalid contract state")
 
-def convert(data,length):
-    if data[:2] == "0x":
-        data = data[2:]
-    if len(data) > length:
-        data = data[:length]
-    else:
-        data = data.rjust(length, '0')
-    if data[:2] != "0x":
-        data = "0x"+data
-    return data
 
-@app.route("/criteria", methods=['POST'])
-def setCriteria():
+@app.route("/criteria/<address>/<refCode>", methods=['POST'])
+def setCriteria(address, refCode):
     try:
         try:
             val = request.get_json()
         except Exception:
             return err("JSON not decodeable")
-        contract_instance = w3.eth.contract(address=contr["address"], abi=contr['abi'])
+        try:
+            abi, addr = getInterface(refCode)
+            contract_instance = w3.eth.contract(address=addr, abi=abi)
+        except Exception:
+            return err("No contract found")
         try:
             addr = int(convert(val['feeDest'], 32),16)
             hash = int(convert(val['hash'], 32),16)
             fee = int(val['fee'])
             quor = int(val['quorum'])
-            addr = w3.eth.accounts[1]
+            #addr = w3.eth.accounts[1]
 
             addr = w3.toChecksumAddress(addr)
         except Exception:
             return err("Invalid address parameter")
-        tx_hash = contract_instance.functions.setCriteria(fee, quor, addr, hash).transact()
+        tx_hash = contract_instance.functions.setCriteria(fee, quor, addr, hash).transact({'from': address})
         receipt = w3.eth.waitForTransactionReceipt(tx_hash)
         return jsonify({"reply":Web3.toHex(tx_hash)})
     except Exception:
         return err("Setting criteria failed, probably set already, try to get refCode and see if it is non-zero")
 
-# def user():
-#     # Create the contract instance with the newly-deployed address
-#     user = w3.eth.contract(address=contract_address, abi=abi)
-#     body = request.get_json()
-#     result, error = UserSchema().load(body)
-#     if error:
-#         return jsonify(error), 422
-#     tx_hash = user.functions.setUser(
-#         result['name'],result['gender']
-#     ).transact()
-#     # Wait for transaction to be mined...
-#     receipt = w3.eth.waitForTransactionReceipt(tx_hash)
-#     user_data = user.functions.getUser().call()
-#     return jsonify({"data": user_data}), 200
+@app.route("/enable/<address>/<refCode>", methods=['GET'])
+def enable(address, refCode):
+    try:
+        try:
+            abi, addr = getInterface(refCode)
+            contract_instance = w3.eth.contract(address=addr, abi=abi)
+        except Exception:
+            return err("No contract found")
+        try:
+            address = w3.toChecksumAddress(address)
+        except Exception:
+            return err("Invalid address parameter")
+        tx_hash = contract_instance.functions.enable().transact({'from': address})
+        receipt = w3.eth.waitForTransactionReceipt(tx_hash)
+        return jsonify({"reply":Web3.toHex(tx_hash)}), 200
+    except Exception:
+        return err("Setting criteria failed, probably set already, try to get refCode and see if it is non-zero")
+
+
+
+@app.route("/debug/<debInfo>", methods=['GET'])
+def debug(debInfo):
+    ret = []
+    for i in range(0,10):
+        ret.append(w3.eth.accounts[i])
+    return jsonify({"Test accounts": ret}), 200
 
 app.run(host="127.0.0.1", port=5554, threaded=True)

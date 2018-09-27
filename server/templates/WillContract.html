@@ -92,25 +92,30 @@
             transition: 0.3s;
         }
 
-            .closebtn:hover {
-                color: black;
-            }
+        .closebtn:hover {
+            color: black;
+        }
     </style>
 </head>
 <body>
+    This interface allows <b>owners</b> of a contract to deploy and manage contracts. <br />
+    It allows registered <b>Users</b> to interact with the contract via <i>UserTab</i>, and to set the refCode
+    of contract via 'Contract -> Use RefCode' tab<br />
     <script type="text/javascript" src="{{ url_for('static', filename='js/GET_POST.js') }}"></script>
     <script type="text/javascript" src="{{ url_for('static', filename='js/jquery-3.3.1.min.js') }}"></script>
     <script src="../static/js/jquery-3.3.1.min.js"></script>
     <script src="../static/js/GET_POST.js"></script>
 
     <div class="tab maintab">
-        <button class="tablinks maintab" onclick="openTab(event, 'maintab', 'Deploy')">Deploy</button>
-        <button class="tablinks maintab" onclick="openTab(event, 'maintab', 'Init')">Initialise</button>
-        <button class="tablinks maintab" onclick="openTab(event, 'maintab', 'Reg')">Register</button>
-        <button class="tablinks maintab" onclick="openTab(event, 'maintab', 'Enable')">Enable</button>
-        <button class="tablinks maintab" onclick="openTab(event, 'maintab', 'Block')">Block</button>
-        <button class="tablinks maintab" onclick="openTab(event, 'maintab','Query')">Query</button>
-        <button class="tablinks maintab" onclick="openTab(event, 'maintab','Info')">Info</button>
+        <button class="tablinks maintab" onclick="openTab(event, 'maintab', 'Address')">Settings</button>
+        <button class="tablinks maintab" onclick="openTab(event, 'maintab', 'Deploy')">Contract</button>
+        <button class="tablinks maintab" onclick="openTab(event, 'maintab', 'Reg')">Register Users</button>
+        <button class="tablinks maintab" onclick="openTab(event, 'maintab', 'Enable')">Enable Release</button>
+        <button class="tablinks maintab" onclick="openTab(event, 'maintab', 'Block')">Block Users</button>
+        <button class="tablinks maintab" onclick="openTab(event, 'maintab','Query')">Query Details</button>
+        <button class="tablinks maintab" onclick="openTab(event, 'maintab','User')"><i>UserTab</i></button>
+        <button class="tablinks maintab" onclick="openTab(event, 'maintab','Info')">Info/How-To </button>
+        <button class="tablinks maintab" onclick="openTab(event, 'maintab','Debug')">Debug </button>
 
         <br />
         <br />
@@ -119,48 +124,53 @@
             <span id='alertText'></span>
         </div>
     </div>
+
+    <div id="Debug" class="tabcontent maintab">
+        <button class="keys" onclick="debug(1)">Show Test Accounts</button>
+        <span id="resDebug"></span>
+
+    </div>
+
+    <div id="Address" class="tabcontent maintab">
+        Provide the account address and RefCode to use for your interactions (in hex) with this contract<br />
+        Account address:<input type="text" id="aAddr" value="" size="60"><br />
+        Reference code: <input type="text" id="aRef" size="20">
+    </div>
+
     <div id="Deploy" class="tabcontent maintab">
         <div class="tab subtab deployTab">
-            <button class="tablinks walletTab" onclick="openTab(event, 'deployTab', 'deploy'); deploy(123);">Submit</button>
+            <button class="tablinks deployTab" onclick="openTab(event, 'deployTab', 'deploy')">Deploy new contract</button>
+            <button class="tablinks deployTab" onclick="openTab(event, 'deployTab', 'init')">Init contract</button>
         </div>
         <div id="deploy" class="tabcontent deployTab">
-            Latest reply:<span id="resDeploy"></span>
+            Provide the reference Code (in hex) for this contract, which is the code used to monitor the release event:<br />
+            Reference Code:<input type="text" id="rRef" value="" size="60"><br />
+            <button class="keys" onclick="deploy($('#rRef').val())">Submit</button><br />
+            <span id="resDeploy"></span>
         </div>
-        <div id="selectWallet" class="tabcontent walletTab">
-            <button class="keys" onclick="clrWallet()">Close current wallet</button><br />
-            Choose name of Wallet to be used:<br />
-            <select id="selWallet" class="options">
-                <option value="__clr"></option>
-                <option value="0">offline0</option>
-                <option value="1">offline1</option>
-            </select>
-            <br />
-            <input type="checkbox" id="usePubKey"> Use public key for payment<br />
-            <input type="checkbox" id="useAddress"> Use address for payment<br />
-            <input type="checkbox" id="useName"> Use name for payment<br />
-            <button class="keys" onclick="JavaScript:selectWallet()">Select</button><br />
-
+        <div id="init" class="tabcontent deployTab">
+            Provide the parameters for the deployed contract (italic not hex)<br />
+            <table>
+                <tr><td><i>Fee:</i> </td><td><input type="text" id="ifee" value="" size="20"></td></tr>
+                <tr><td>Min Release: </td><td><input type="text" id="iquor" value="" size="5"></td></tr>
+                <tr><td>Address fee recipient: </td><td><input type="text" id="irec" value="" size="60"></td></tr>
+                <tr><td>Document Hash: </td><td><input type="text" id="ihash" value="" size="60"></td></tr>
+            </table>
+            <button class="keys" onclick="setCriteria()">Submit</button>
         </div>
-        <div id="infow" class="tabcontent walletTab">
-            Keys are managed within so-called 'wallets'. Wallets only hold keys, they don't contain 'monetary' value.
-            Before payments can be made or balances be queried, a specific wallte needs to be activated.
-            Keys can be grouped in different wallets, as wallets are distinguished by names.<br />
-            A wallet <b>must</b> be selected in order to make payment/transfer or to create additional keys.
-        </div>
-        <div id="TBDw" class="tabcontent walletTab">
-            This function/feature is not yet implemented...
-        </div>
-
     </div>
 
-    <div id="Init" class="tabcontent maintab">
-        Provide the parameters for the deployed contract<br />
-        <input type="text" id="ifee" value="" size="10"><br />
-        <input type="text" id="iquor" value="" size="5"><br />
-        <input type="text" id="irec" value="" size="20"><br />
-        <input type="text" id="ihash" value="" size="20"><br />
+    <div id="User" class="tabcontent maintab">
+        Provide the parameters for the deployed contract (italic not hex)<br />
+        <table>
+            <tr><td><i>Fee:</i> </td><td><input type="text" id="ifee" value="" size="20"></td></tr>
+            <tr><td>Min Release: </td><td><input type="text" id="iquor" value="" size="5"></td></tr>
+            <tr><td>Address fee recipient: </td><td><input type="text" id="irec" value="" size="60"></td></tr>
+            <tr><td>Document Hash: </td><td><input type="text" id="ihash" value="" size="60"></td></tr>
+        </table>
         <button class="keys" onclick="setCriteria()">Submit</button>
     </div>
+
 
     <div id="Reg" class="tabcontent maintab">
         <div class="tab subtab regTab">
@@ -179,8 +189,8 @@
 
     <div id="Enable" class="tabcontent maintab">
         <div class="tab subtab enTab">
-            <button class="tablinks qTab" onclick="JavaScript:openTab(event, 'qTab', 'nInfo');doDirect('info','NI')">Node Info</button>
-            <button class="tablinks qTab" onclick="JavaScript: openTab(event, 'qTab', 'cfg');doDirect('cfg','PC')">CfgInfo</button>
+            <button class="tablinks qTab" onclick="JavaScript:enable()">Activate Release</button>
+            Note that this is a one-way, the contract cannot be reset anymore after this.
         </div>
         Enabvle release..
     </div>
@@ -189,11 +199,13 @@
         <div class="tab subtab qTab">
             <button class="tablinks qTab" onclick="JavaScript:query('fee')">Fee</button>
             <button class="tablinks qTab" onclick="JavaScript:query('refCode')">Reference Code</button>
-            <button class="tablinks qTab" onclick="JavaScript:query('numBene')">No. reg users</button>
+            <button class="tablinks qTab" onclick="JavaScript:query('numUser')">No. registered Users</button>
             <button class="tablinks qTab" onclick="JavaScript:query('hash')">Hash</button>
-            <button class="tablinks qTab" onclick="JavaScript:query('enabled')">Enabled</button>
+            <button class="tablinks qTab" onclick="JavaScript:query('nofm')">Missing registrations</button>
+            <button class="tablinks qTab" onclick="JavaScript:query('enabled')">Release Enabled?</button>
+            <button class="tablinks qTab" onclick="JavaScript:query('key')">ReleasedKey</button>
         </div>
-  
+
     </div>
 
     <div id="Info" class="tabcontent maintab">
@@ -298,74 +310,94 @@
 
     <script>
 
+        function getAddrRef() {
+            var ret = $("#aAddr").val() + "/" + $("#aRef").val() 
+            return ret;
+        }
+
+        function debug(code) {
+            var repl = doGETSynch("debug/" + code);
+            var json = repl[0];
+            var code = repl[1];
+            if (code == 200) {
+                var resp = ""
+                for (key in json) {
+                    resp = resp + json[key] + "<br />"
+                }
+                rs = resp.split(",")
+                rsx = "<br />"
+                for (var i = 0; i < rs.length; i++) {
+                    rsx = rsx + "<b>" + i + "</b> :" + rs[i] + "<br />"
+                }
+                document.getElementById("resDebug").innerHTML = rsx;
+            } else {
+                doAlert("Query for " + type + " failed", 0);
+            }
+        }
+
         function setCriteria() {
             data = {
                 "fee": $("#ifee").val(),
                 "quorum": $("#iquor").val(),
                 "feeDest": $("#irec").val(),
-                "hash": $("#ihash").val()
+                "hash": $("#ihash").val(),
+                "owner": $("#aAddr").val()
             };
-            var repl = doPOSTSynch("criteria",null,data);
-            var json = repl[0];
-            var code = repl[1];
-            if (code == 200) {
-                doAlert(JSON.stringify(json),9);
-            } else {
-                doAlert("Query for " + type + " failed", 0);
-            }
-        }
-                    
-        function deploy(type) {
-            var repl = doGETSynch("deploy/" + code);
-            var json = repl[0];
-            var code = repl[1];
-            if (code == 200) {
-                document.getElementById("resDeploy").innerHTML = JSON.stringify(json);
-            } else {
-                doAlert("Query for " + type + " failed", 0);
-            }
-        }
-
-        function query(type) {
-            var repl = doGETSynch("query/" + type);
+            var repl = doPOSTSynch("criteria/" + $("#aRef").val(), null, data);
             var json = repl[0];
             var code = repl[1];
             if (code == 200) {
                 doAlert(JSON.stringify(json), 9);
             } else {
-                doAlert("Query for "+type+" failed", 0);
+                doAlert("Query for " + type + " failed", 0);
             }
         }
+
+        function deploy(code) {
+            var repl = doGETSynch("deploy/" + $("#aAddr").val()+"/"+ code);
+            var json = repl[0];
+            var code = repl[1];
+            if (code == 200) {
+                var resp = "</br>"
+                for (key in json) {
+                    resp = resp + "<b>" + key + "</b>: " + json[key] + "<br />"
+                }
+                document.getElementById("resDeploy").innerHTML = resp;
+                document.getElementById("resAddr").value = code;
+            } else {
+                doAlert("Deploy failed, " + JSON.stringify(json), 0);
+            }
+        }
+
+        function query(type) {
+            var repl = doGETSynch("query/" + $("#aRef").val() + "/" + type);
+            var json = repl[0];
+            var code = repl[1];
+            if (code == 200) {
+                doAlert(JSON.stringify(json), 9);
+            } else {
+                doAlert("Query for " + type + " failed, " + JSON.stringify(json), 0);
+            }
+        }
+
+        function enable(type) {
+            var repl = doGETSynch("enable/" + getAddrRef() + "/" + type);
+            var json = repl[0];
+            var code = repl[1];
+            if (code == 200) {
+                doAlert(JSON.stringify(json), 9);
+            } else {
+                doAlert("Query for " + type + " failed", 0);
+            }
+        }
+
+
         /*
         * State Management
         */
         $(".alert").css("display", "none");
-        user = "";
         initState();
 
-
-        function h(message) {
-            return "<u>" + message + "</u>";
-        }
-
-
-        function logUser(event) {
-            if ($("#login").text() == "SetUser") {
-                user = $("#userName").val().trim();
-                if (user.length > 0) {
-                    initState();
-                    // $('#login').text('LogOut');
-                    $("#userName").val("***");
-                }
-            }
-            //else {
-            //   openTab(event, 'maintab', 'Info');
-            //    $("#userName").val("");
-            //    user = '';
-            //    initState();
-            //    $('#login').text('SetUser');
-            //}
-        }
 
         function toClipBoard(id) {
             var text = $("#" + id).val()
@@ -413,432 +445,6 @@
 
         function initState() {
             openTab(null, 'maintab', 'Info')
-        }
-
-        function updateStateInfo() {
-            $("#state").text("Wallet: " + state.wallet);
-        }
-
-
-        /*
-            * Manage the keys and wallets
-            */
-
-        function getKeyInput(wallet, ext) {
-            var keys = +$("#numKeys" + ext).val();
-            if (keys <= 0) {
-                doAlert("No keys to be created", 9);
-                return {}
-            }
-            var dat = { "name": wallet, "numKeys": keys, "keyNames": [] };
-            var names = 0;
-            for (var i = 1; i <= keys; i++) {
-                var nam = $("#key" + i + "Name" + ext).val().trim();
-                if (nam === "") {
-                    continue;
-                }
-                if ((dat['keyNames'].length > 0) && dat['keyNames'].includes(nam)) {
-                    doAlert("Duplicate key names not allowed: " + h(nam), 9);
-                    return {};
-                }
-                dat.keyNames.push(nam);
-                names++;
-            }
-            if (names > keys) {
-                doAlert("More names given than keys requested, please adjust setting.", 9);
-                return {};
-            }
-            dat['user'] = user;
-            return dat;
-        }
-
-        function createWallet() {
-            var name = $("#walletName").val();
-            closeWallet();
-            if (name.length > 0) {
-                var dat = getKeyInput(name, "")
-                if (dat.length == 0) {
-                    return
-                }
-                var repl = doPOSTSynch("wallet/create", null, dat);
-                var json = repl[0];
-                var code = repl[1];
-                if (code == 200) {
-                    doAlert("Creation of wallet " + h(name) + " succeded. To use, go 'Select Wallet'", 9)
-                }
-                else {
-                    doAlert("Creation not successful, Node said: " + h(json.message), 0)
-                }
-            } else {
-                doAlert("Missing " + h("Wallet name") + ", one is required for Create Key", 0);
-            }
-        }
-
-
-        function populateSelOptions(id, items) {
-            id = "#" + id;
-            $(id).empty(); //remove all child nodes
-            var newOption = $('<option value="" selected>  </option>');
-            $(id).append(newOption);
-            for (var i = 0; i < items.length; i++) {
-                newOption = $('<option value="' + items[i] + '">' + items[i] + '</option>');
-                $(id).append(newOption);
-            }
-        }
-
-
-
-        function selectWallet() {
-            var sel = $('#selWallet').find(":selected").text();
-            var val = $('#selWallet').find(":selected").val();
-            var chk = document.getElementById("usePubKey").checked || document.getElementById("useAddress").checked
-                || document.getElementById("useName").checked;
-            useWallet(sel, false);
-            $('#selWallet').val(val);
-            if (!chk) {
-                doAlert("Remember to choose the mode for you to select keys in other steps!", 1)
-            } else {
-                state.sel = {
-                    "pub": document.getElementById("usePubKey").checked,
-                    "add": document.getElementById("useAddress").checked,
-                    "nam": document.getElementById("useName").checked
-                }
-            }
-        }
-
-        function useWallet(name, alertEmpty, alertName) {
-            closeWallet();
-            if (name.length > 0) {
-                state.wallet = name;
-                $('#selWallet').val(name);
-                doAlert("Wallet selected: " + h(name), 9);
-            } else {
-                if (alertEmpty) {
-                    doAlert("Wallet selection cleared", 9);
-                }
-            }
-            updateStateInfo();
-        }
-
-        /*
-         * Keys section
-         */
-
-        function createKeys() {
-            var dat = getKeyInput(state.wallet, "k")
-            if (dat.length == 0) {
-                return
-            }
-
-            var repl = doPOSTSynch("wallet/createKey", null, dat);
-            var json = repl[0];
-            var code = repl[1];
-            if (code == 200) {
-                doAlert(json.message, 9)
-            }
-            else {
-                doAlert("Creation not successful, Node said: " + h(json.message), 0)
-            }
-        }
-
-        /*
-            * Payment section
-            */
-
-        function payAccount() {
-            var dat = [];
-            var params = {};
-            var ref = $("#otherAddress").val().trim();
-            if (ref.length > 0) {
-                dat.push("address");
-                dat.push(ref);
-            }
-            ref = $("#otherPubKey").val().trim();
-            if (ref.length > 0) {
-                if (dat.length > 0) {
-                    doAlert("Only one recipient information to be provided!", 0);
-                    return;
-                }
-                dat.push("pubKey");
-                dat.push(ref);
-            }
-            params['walletDest'] = "";
-            params['receiver'] = dat;
-            submitPay(params);
-        }
-
-        function payOwn() {
-            var params = {};
-            params['receiver'] = getSingleSel("2");
-            params['walletDest'] = state.wallet;
-            if (params['receiver'].length == 0) {
-                doAlert("Only one wallet reference to be provided!", 0);
-                return;
-            }
-            submitPay(params);
-        }
-
-        function submitPay(params) {
-            params['fee'] = +$("#payFees").val().trim();
-            params['amount'] = +$("#payAmount").val().trim();
-            params['source'] = getSingleSel("");
-            params['walletSrc'] = state.wallet;
-            params['walletPW'] = prompt("Please enter your password to use keys in wallet", "KeyPassword");
-            params['msg'] = $("#payMes").val().trim(); // TODO cleanse??
-            if (params['source'].length == 0) {
-                doAlert("Only one wallet reference to be provided!", 0);
-                return;
-            }
-            params['user'] = user;
-            var repl = doPOSTSynch("wallet/transfer", null, params);
-            var jsond = repl[0];
-            var code = repl[1];
-            if ((code == 201) && ('transactionDataHash' in jsond)) {
-                hash = jsond['transactionDataHash'];
-                doAlert("Tx succeeded " + hash, 8);
-                $("#TxHash").text(hash);
-            } else {
-                doAlert(JSON.stringify(jsond), 0);
-                $("#TxHash").text(JSON.stringify(jsond));
-            }
-        }
-
-        function prepareSelection() {
-            //var sel = $('#selPayKey').find(":selected").text();
-            var valp = $('#selPayKeyP').find(":selected").val();
-            var vala = $('#selPayKeyA').find(":selected").val();
-            var valn = $('#selPayKeyN').find(":selected").val();
-            var repl = doGETSynch("wallet/list/keys/s" + (state.sel.pub ? "py" : "") + (state.sel.add ? "ay" : "")
-                + (state.sel.nam ? "ny" : "") + "/" + state.wallet + "/" + user);
-            var json = repl[0];
-            var code = repl[1];
-            if (code == 200) {
-                var pk = []
-                var ad = []
-                var na = []
-                for (var kk = 0; kk < json.keyList.length; kk++) {
-                    var kx = json.keyList[kk]
-                    var kxx = kx.split(":")
-                    if (kxx[0] === "pubkey") {
-                        pk.push(kxx[1])
-                    }
-                    if (kxx[0] === "addr") {
-                        ad.push(kxx[1])
-                    }
-                    if (kxx[0] === "name") {
-                        na.push(kxx[1])
-                    }
-                }
-                populateSelOptions('selPayKeyP', pk);
-                $('#selPayKeyP').val(valp);
-                populateSelOptions('selPayKeyA', ad);
-                $('#selPayKeyA').val(vala);
-                populateSelOptions('selPayKeyN', na);
-                $('#selPayKeyN').val(valn);
-                populateSelOptions('selPayKeyP2', pk);
-                $('#selPayKeyP2').val(valp);
-                populateSelOptions('selPayKeyA2', ad);
-                $('#selPayKeyA2').val(vala);
-                populateSelOptions('selPayKeyN2', na);
-                $('#selPayKeyN2').val(valn);
-            } else {
-                doAlert("population of data failed " + JSON.stringify(json));
-            }
-        }
-
-        function preparePayment() {
-            prepareSelection();
-        }
-
-        function getSingleSel(use) {
-            var valp = $('#selPayKeyP' + use).find(":selected").val();
-            var vala = $('#selPayKeyA' + use).find(":selected").val();
-            var valn = $('#selPayKeyN' + use).find(":selected").val();
-            var ret = []
-
-            if (valp) {
-                ret.push("publicKey");
-                ret.push(valp);
-                if ((vala) || (valn)) {
-                    return [];
-                }
-            } else if (vala) {
-                ret.push("address");
-                ret.push(vala);
-                if (valn) {
-                    return [];
-                }
-            } else if (valn) {
-                ret.push("name");
-                ret.push(valn);
-            }
-            return ret
-
-        }
-
-
-        /*
-            * Balance section
-            */
-
-        function getBalanceWallets() {
-            var repl = doGETSynch("wallet/list/allbalances/" + user);
-            var json = repl[0];
-            var code = repl[1];
-            if (code == 200) {
-                var res = "<table border='1'>";
-                for (var txt in json) {
-                    if (json.hasOwnProperty(txt)) {
-                        res = res + "<tr><td>" + txt + "</td><td> " + json[txt] + "</td></tr>";
-                    }
-                }
-                res = res + "</table>"
-                $("#balAllResult").html(res);
-            } else {
-                doAlert(JSON.stringify(json), 0);
-            }
-        }
-
-        function getBalanceWallet(wallet) {
-            var repl = doGETSynch("wallet/list/allbalance/" + wallet + "/" + user);
-            var json = repl[0];
-            var code = repl[1];
-            if (code == 200) {
-                var res = "<table border='1'>";
-                for (var txt in json) {
-                    if (json.hasOwnProperty(txt)) {
-                        res = res + "<tr><td>" + txt + "</td><td> " + json[txt] + "</td></tr>";
-                    }
-                }
-                res = res + "</table>"
-                $("#balResult").html(res);
-            } else {
-                doAlert(JSON.stringify(json), 0);
-            }
-        }
-
-        function getBalanceWalletKeys(wallet) {
-            var repl = doGETSynch("wallet/list/allkeybalance/" + wallet + "/" + user);
-            var json = repl[0];
-            var code = repl[1];
-            if (code == 200) {
-                var order = ["confirmedBalance", "pendingBalance", "safeBalance"];
-                var res = "<table border='1'> <th>address</th>";
-                for (var i = 0; i < order.length; i++) {
-                    res = res + "<th>" + order[i] + "</th>";
-                }
-                for (var addr in json) {
-                    if (json.hasOwnProperty(addr)) {
-                        res = res + "<tr><td>" + addr + "</td>";
-                        var i = 0
-                        for (var i = 0; i < order.length; i++) {
-                            res = res + "<td align='center'>" + json[addr][order[i]] + "</td>";
-                        }
-                        res = res + "</tr>";
-                    }
-                }
-                res = res + "</table>"
-                $("#balResult").html(res);
-            } else {
-                doAlert(JSON.stringify(json), 0);
-            }
-        }
-
-        function chkBalForKey(use) {
-            var sel = getSingleSel(use);
-            if (sel.length == 0) {
-                doAlert("Key selection must be unique, use exactly one option", 1);
-                return;
-            }
-            var repl = doGETSynch("wallet/list/balance/" + sel[0] + "/" + state.wallet + "/" + sel[1] + "/" + user);
-            var json = repl[0];
-            var code = repl[1];
-            if (code == 200) {
-                doAlert("Key balance " + JSON.stringify(json), 8);
-            } else {
-                doAlert(JSON.stringify(json), 0);
-            }
-        }
-
-
-        /*
-            * TX section
-            */
-
-        function showTX(type, repl, ext) {
-            var json = repl[0];
-            var code = repl[1];
-            if (code == 200) {
-                var res = "";
-                var th = "";
-                var order = ['value', 'fee', 'data', 'dateCreated', 'from', 'to', 'transactionDataHash'];
-                for (var i = 0; i < order.length; i++) {
-                    th = th + "<th>" + order[i] + "</th>";
-                }
-                var address = ""
-                var typeN = ""
-                var cnt = 1;
-                for (var ad = 0; ad < json.length; ad++) {
-                    for (var txt in json[ad]) {
-                        if ((txt == 'address') || (txt == "keyName") || (txt == "pubKey")) {
-                            var address = json[ad][txt].replace("/", "<br />")
-                            var typeN = txt
-                        } else {
-                            for (var tx = 0; tx < json[ad][txt].length; tx++) {
-                                res = res + "<tr><td>" + cnt + "</td><td>" + address + "</td>";
-                                cnt++;
-                                for (var det = 0; det < order.length; det++) {
-                                    if (json[ad][txt][tx].hasOwnProperty(order[det])) {
-                                        res = res + "<td>" + json[ad][txt][tx][order[det]] + "</td>";
-                                    }
-                                }
-                                res = res + "</tr>";
-                            }
-                        }
-                    }
-                }
-                res = "<table border='1'><th>#</th><th>" + typeN + "</th>" + th + res + "</table>"
-                $("#tx" + (type == 1 ? "p" : "") + ext + "Result").html(res);
-                doAlert("Update completed", 9);
-            } else {
-                doAlert(JSON.stringify(json), 0);
-            }
-        }
-
-        function getTXWallets(type) {
-            var repl = +$('input[name=type]:checked').val() + type
-            if (isNaN(repl)) {
-                repl = 0;
-            }
-            showTX(type, doGETSynch("wallet/list/allTXs/" + repl + "/" + user), "All")
-        }
-
-        function getTXWallet(wallet, type) {
-            if (wallet == "") {
-                doAlert("No wallet selected", 0);
-                return;
-            }
-            var repl = +$('input[name=type]:checked').val() + type
-            if (isNaN(repl)) {
-                repl = 1;
-            }
-            showTX(type, doGETSynch("wallet/list/allTX/" + repl + "/" + wallet + "/" + user), "");
-        }
-
-        function chkTXForKey(use) {
-            var sel = getSingleSel(use);
-            if (sel.length == 0) {
-                doAlert("Key selection must be unique, use exactly one option", 1);
-                return;
-            }
-            var repl = doGETSynch("wallet/list/balance/" + sel[0] + "/" + state.wallet + "/" + sel[1] + "/" + user);
-            var json = repl[0];
-            var code = repl[1];
-            if (code == 200) {
-                doAlert("Tx succeeded " + JSON.stringify(json), 8);
-            } else {
-                doAlert(JSON.stringify(json), 0);
-            }
         }
 
 
