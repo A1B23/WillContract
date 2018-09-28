@@ -189,20 +189,26 @@
 
     <div id="Repo" class="tabcontent maintab">
         <div class="tab subtab repoTab">
-            <button class="tablinks repoTab" onclick="openTab(event, 'repoTab', 'deploy')">Register event monitor</button>
-            <button class="tablinks repoTab" onclick="openTab(event, 'deployTab', 'init')">Manual release</button>
-            <button class="tablinks repoTab" onclick="openTab(event, 'deployTab', 'deploy')">Register event monitor</button>
+            <button class="tablinks repoTab" onclick="openTab(event, 'repoTab', 'mon')">{Register event monitor}</button>
+            <button class="tablinks repoTab" onclick="openTab(event, 'deployTab', 'man')">Manual release</button>
+            <button class="tablinks repoTab" onclick="openTab(event, 'deployTab', 'demon')">{De-Register event monitor}</button>
         </div>
-        <div id="deploy" class="tabcontent repoTab">
-
+        <div id="mon" class="tabcontent repoTab">
+            {I was not bale to get any event watching working with python, use manual process}
         </div>
-        <div id="init" class="tabcontent repoTab">
+        <div id="man" class="tabcontent repoTab">
+            Please provide the repository key.<br /><br />
+            Fee:<input type="text" id="repKey" value="" size="60"><br />
+            <button class="keys" onclick="releaseKey($('#repKey').val())">Release Key</button>
+        </div>
+        <div id="demon" class="tabcontent repoTab">
+            {I was not bale to get any event watching working with python, use manual process}
         </div>
     </div>
 
     <div id="User" class="tabcontent maintab">
         Please provide the fee to pay.<br />
-        <i>Note that minimum fee can be queried.</i><br /><br />
+        <i>If not sure about minimum release fee, go to Query and check.</i><br /><br />
         Fee:<input type="text" id="uFee" value="" size="60"><br />
         <button class="keys" onclick="release($('#uFee').val())">Release Request</button>
     </div>
@@ -210,13 +216,13 @@
 
     <div id="Query" class="tabcontent maintab">
         <div class="tab subtab qTab">
-            <button class="tablinks qTab" onclick="JavaScript:query('fee')">Fee</button>
+            <button class="tablinks qTab" onclick="JavaScript:query('fee')">Release Fee</button>
+            <button class="tablinks qTab" onclick="JavaScript:query('hash')">Document Hash</button>
             <button class="tablinks qTab" onclick="JavaScript:query('refCode')">Reference Code</button>
             <button class="tablinks qTab" onclick="JavaScript:query('numUser')">No. registered Users</button>
-            <button class="tablinks qTab" onclick="JavaScript:query('hash')">Hash</button>
             <button class="tablinks qTab" onclick="JavaScript:query('nofm')">Missing registrations</button>
-            <button class="tablinks qTab" onclick="JavaScript:query('misRel')">Missing releases</button>
-            <button class="tablinks qTab" onclick="JavaScript:query('enabled')">Release Enabled?</button>
+            <button class="tablinks qTab" onclick="JavaScript:query('misRel')">Missing Releases</button>
+            <button class="tablinks qTab" onclick="JavaScript:query('enabled')">Releasing Enabled?</button>
             <button class="tablinks qTab" onclick="JavaScript:query('key')">ReleasedKey</button>
         </div>
 
@@ -402,6 +408,17 @@
                     resp = resp + "<b>" + key + "</b>: " + json[key] + "<br />"
                 }
                 doAlert("Your release request was successful")
+            } else {
+                doAlert("Release request failed, " + JSON.stringify(json), 0);
+            }
+        }
+
+        function releaseKey(key) {
+            var repl = doGETSynch("key/" + getAddrRef() + "/" + key);
+            var json = repl[0];
+            var code = repl[1];
+            if (code == 200) {
+                doAlert("Your release request was successful, can query key")
             } else {
                 doAlert("Release request failed, " + JSON.stringify(json), 0);
             }

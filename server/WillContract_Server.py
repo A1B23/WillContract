@@ -106,7 +106,7 @@ def query(refCode, qtype):
         elif qtype == "enabled":
             ret = str(contract_instance.functions.isOpenForRelease().call())
         elif qtype == "key":
-            ret = str(contract_instance.functions.getKey().call())
+            ret = str(hex(contract_instance.functions.getKey().call()))
         elif qtype == "nofm":
             ret = str(contract_instance.functions.getNumberMissingBeneficiaries().call())
         elif qtype == "misRel":
@@ -199,6 +199,26 @@ def release(address, refCode, fee):
     except Exception:
         return err("Release failed, provided enough ether?")
 
+@app.route("/key/<address>/<refCode>/<key>", methods=['GET'])
+def releaseKey(address, refCode, key):
+    try:
+        try:
+            abi, addr = getInterface(refCode)
+            contract_instance = w3.eth.contract(address=addr, abi=abi)
+        except Exception:
+            return err("No contract found")
+        try:
+            address = w3.toChecksumAddress(address)
+            key = int(convert(key,32),16)
+        except Exception:
+            return err("Invalid address parameter")
+        tx_hash = contract_instance.functions.submitKey(key).transact({'from': address})
+        receipt = w3.eth.waitForTransactionReceipt(tx_hash)
+        return jsonify({"TXHash": Web3.toHex(tx_hash)}), 200
+    except Exception:
+        return err("Release failed, provided enough ether?")
+
+
 @app.route("/register/<address>/<refCode>/<user>", methods=['GET'])
 def register(address, refCode, user):
     try:
@@ -216,7 +236,7 @@ def register(address, refCode, user):
         receipt = w3.eth.waitForTransactionReceipt(tx_hash)
         return jsonify({"TXHash": Web3.toHex(tx_hash)}), 200
     except Exception:
-        return err("Registration failed, address is already registered")
+        return err("Registration failed, address is already registered, or contract closed?")
 
 @app.route("/block/<address>/<refCode>/<user>", methods=['GET'])
 def block(address, refCode, user):
@@ -243,5 +263,7 @@ def debug(debInfo):
     for i in range(0,10):
         ret.append(w3.eth.accounts[i])
     return jsonify({"Test accounts": ret}), 200
+
+
 
 app.run(host="127.0.0.1", port=5554, threaded=True)
