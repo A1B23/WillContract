@@ -3,17 +3,18 @@ from flask import Flask, request, jsonify, render_template
 from web3 import Web3
 from solc import compile_source
 
-# web3.py instance
 w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:8545"))
 #w3.eth.defaultAccount = w3.eth.accounts[0]... was used only for initial testing
 
 
 app = Flask(__name__)
 
+# standard erro rmessage reply
 def err(mes):
     return jsonify({"Error":mes}), 400
 
 
+# while not usual, but if shortened hex is provided, make it to expected length
 def convert(data, length):
     if data[:2] == "0x":
         data = data[2:]
@@ -26,6 +27,9 @@ def convert(data, length):
     return data
 
 
+# Read the interface data from the local file
+# These two files must be shared by the owner to the users and the repository
+# As none of them is condifential, they can be sent by mails etc.
 def getInterface(refCode):
     refCode1 = convert(refCode, 32)
     json_data = open(refCode1 + "_abi.json").read()
@@ -38,11 +42,16 @@ def getInterface(refCode):
 
 # api to set new user every api call
 
+# Curerently all three functions are provided in one GUI
+# this could be split our into a main fucntion and three separate GUIs
 @app.route("/", methods=['GET'])
 def index():
     return render_template("WillContract.html")
 
 
+# This deploys the contract, it assumes the owner has the sol-file in the expected
+# path, and the address file and the abi file are then generated and stored so that
+# the owner can share it with users and repository
 @app.route("/deploy/<address>/<refCode>", methods=['GET'])
 def deploy(address, refCode):
     try:
@@ -52,14 +61,14 @@ def deploy(address, refCode):
             refCode = int(refCode1, 16)
         except Exception:
             return err("Invalid address parameter")
-        # Solidity source code
-        file = open("../truffleproject/contracts/WillContract.sol", "r")
-        contract_source_code = file.read()
+        # Solidity source code, compile it with local compiler
+        with open("../truffleproject/contracts/WillContract.sol", "r") as con:
+            contract_source_code = con.read()
         compiled_sol = compile_source(contract_source_code)  # Compiled source code
         contract_interface = compiled_sol['<stdin>:WillContract']
 
-        # deploy_contract(contract_interface):
         # Instantiate and deploy contract
+        # deploy_contract(contract_interface):
         contract = w3.eth.contract(
             abi=contract_interface['abi'],
             bytecode=contract_interface['bin']
@@ -72,7 +81,7 @@ def deploy(address, refCode):
         except Exception:
             return err("TX failed, is the address correct? "+address)
 
-        # Remember the settings in a file, later can use SQLite etc if needed/better
+        # Remember the settings in a file, these are public info
         with open(refCode1+"_abi.json", "w") as outfile:
             json.dump(contract_interface['abi'], outfile)
         with open(refCode1+"_address.dat", "w") as outfile:
@@ -86,6 +95,10 @@ def deploy(address, refCode):
         return err('Deployment failed, contact admin')
 
 
+# This is a general query functions controlled by keyuwords
+# All calls here are to view functions and don't need transaction
+# so they don't have the sender address, only the contract refCode is needed
+# the reply is adjusted to be hex where typically hex values are used
 @app.route("/query/<refCode>/<qtype>", methods=['GET'])
 def query(refCode, qtype):
     try:
@@ -115,7 +128,9 @@ def query(refCode, qtype):
     except Exception:
         return err("Query failed, no refCode or invalid contract state")
 
-
+# This routine sets the contract parameters by the owner,
+# it is the only POST function so far. Parameters can only
+# be set once, unless there was a contract reset
 @app.route("/criteria/<address>/<refCode>", methods=['POST'])
 def setCriteria(address, refCode):
     try:
@@ -137,11 +152,12 @@ def setCriteria(address, refCode):
             return err("Invalid address parameter")
         tx_hash = contract_instance.functions.setCriteria(fee, quor, feeDest, hash).transact({'from': address})
         receipt = w3.eth.waitForTransactionReceipt(tx_hash)
-        return jsonify({"TXHash":Web3.toHex(tx_hash)})
+        return jsonify({"TXHash": Web3.toHex(tx_hash)})
     except Exception:
         return err("Setting criteria failed")
 
-
+# This routine enables the users to make release requests
+# it must be called after the users are registered
 @app.route("/enable/<address>/<refCode>", methods=['GET'])
 def enable(address, refCode):
     try:
@@ -160,7 +176,8 @@ def enable(address, refCode):
     except Exception:
         return err("Enabling failed, n-of-m not reached, check missing registration and enabled status")
 
-
+# This function allows the owner to reset the parameters of the contract
+# It resets the state back to as it was right after deployment
 @app.route("/reset/<address>/<refCode>", methods=['GET'])
 def reset(address, refCode):
     try:
@@ -179,6 +196,9 @@ def reset(address, refCode):
     except Exception:
         return err("Reset failed, keys got released already.")
 
+# This is used by registered users, who want to make a release request
+# As the release is the paying function for the repoistory, the
+# user must also provide the amount of Wei to be paid
 @app.route("/release/<address>/<refCode>/<fee>", methods=['GET'])
 def release(address, refCode, fee):
     try:
@@ -199,6 +219,9 @@ def release(address, refCode, fee):
     except Exception:
         return err("Release failed, provided enough ether?")
 
+# This is called by the repository after it detects (or is alerted) of the event
+# The event is raised when enough release requests have been made.
+# By releasing the key, the repository gets the total of fees transferred
 @app.route("/key/<address>/<refCode>/<key>", methods=['GET'])
 def releaseKey(address, refCode, key):
     try:
@@ -219,6 +242,9 @@ def releaseKey(address, refCode, key):
         return err("Release failed, provided enough ether?")
 
 
+# This routine is used by the owner to register users
+# the users are registered by their account address, which they later
+# must use to make release requests
 @app.route("/register/<address>/<refCode>/<user>", methods=['GET'])
 def register(address, refCode, user):
     try:
@@ -238,6 +264,9 @@ def register(address, refCode, user):
     except Exception:
         return err("Registration failed, address is already registered, or contract closed?")
 
+
+# This routine is used by the owner to block already registered users
+# the users are registered by their account address, which is used here to block them
 @app.route("/block/<address>/<refCode>/<user>", methods=['GET'])
 def block(address, refCode, user):
     try:
@@ -257,6 +286,8 @@ def block(address, refCode, user):
     except Exception:
         return err("Blocking user failed, address is not registered")
 
+# This function is ponly or testing with ganache, it provides
+# the list of accounts created during the ganache session
 @app.route("/debug/<debInfo>", methods=['GET'])
 def debug(debInfo):
     ret = []
