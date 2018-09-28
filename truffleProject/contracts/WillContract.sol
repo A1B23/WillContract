@@ -158,7 +158,7 @@ contract WillContract {
     // Any registered beneficiary can pay the required fee to register
     // the request for release. When the minimum of such requests is reached
     // an event is triggered to inform the custodian
-    function releaseFor() external payable returns (uint8) {
+    function releaseFor() external payable {
         require(state == State.ForRelease);
         require(benefit[msg.sender] == Beneficiary.Permitted);
         require(msg.value >= releaseFee);
@@ -170,7 +170,6 @@ contract WillContract {
             state = State.Active;
             emit ReleaseRequestsCompleted(owner, codeRef);
         }
-        return doneBene;
     }
     
     // Watcher submits key and gets fee

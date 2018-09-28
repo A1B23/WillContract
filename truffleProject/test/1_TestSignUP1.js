@@ -883,11 +883,12 @@ contract('Enabling 3:2 and then have two request release', function (accounts) {
         });
         await instance.releaseFor({ value: cpx['curFee'], from: accounts[2] });
     });
-    it("should have one missing beneficiary request", async function () {
+    it("should have no missing beneficiary request", async function () {
         let instance = await WillContract.deployed();
         let val = await instance.getNumberMissingForRelease();
         assert.equal(val, 0, "Wrong number of missing for release");
     });
+
     it("should not allow blocking anymore, as state is active", async function () {
         let instance = await WillContract.deployed();
         let thrown = false;

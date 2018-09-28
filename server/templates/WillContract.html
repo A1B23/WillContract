@@ -98,9 +98,6 @@
     </style>
 </head>
 <body>
-    This interface allows <b>owners</b> of a contract to deploy and manage contracts. <br />
-    It allows registered <b>Users</b> to interact with the contract via <i>UserTab</i>, and to set the refCode
-    of contract via 'Contract -> Use RefCode' tab<br />
     <script type="text/javascript" src="{{ url_for('static', filename='js/GET_POST.js') }}"></script>
     <script type="text/javascript" src="{{ url_for('static', filename='js/jquery-3.3.1.min.js') }}"></script>
     <script src="../static/js/jquery-3.3.1.min.js"></script>
@@ -108,17 +105,14 @@
 
     <div class="tab maintab">
         <button class="tablinks maintab" onclick="openTab(event, 'maintab', 'Address')">Settings</button>
-        <button class="tablinks maintab" onclick="openTab(event, 'maintab', 'Deploy')">Contract</button>
-        <button class="tablinks maintab" onclick="openTab(event, 'maintab', 'Reg')">Register Users</button>
-        <button class="tablinks maintab" onclick="openTab(event, 'maintab', 'Enable')">Enable Release</button>
-        <button class="tablinks maintab" onclick="openTab(event, 'maintab', 'Block')">Block Users</button>
+        <button class="tablinks maintab" onclick="openTab(event, 'maintab', 'Contract')">Contract</button>
+        <button class="tablinks maintab" onclick="openTab(event, 'maintab', 'UM')">User Management</button>
         <button class="tablinks maintab" onclick="openTab(event, 'maintab','Query')">Query Details</button>
         <button class="tablinks maintab" onclick="openTab(event, 'maintab','User')"><i>UserTab</i></button>
+        <button class="tablinks maintab" onclick="openTab(event, 'maintab','Repo')"><i>Repository</i></button>
         <button class="tablinks maintab" onclick="openTab(event, 'maintab','Info')">Info/How-To </button>
         <button class="tablinks maintab" onclick="openTab(event, 'maintab','Debug')">Debug </button>
-
-        <br />
-        <br />
+        <br /><br />
         <div class="alert">
             <span class="closebtn" onclick="closeAlert();">&times;</span>
             <span id='alertText'></span>
@@ -133,67 +127,86 @@
 
     <div id="Address" class="tabcontent maintab">
         Provide the account address and RefCode to use for your interactions (in hex) with this contract<br />
+        This is needed for all types: Owner, User, and Repository<br /><br />
         Account address:<input type="text" id="aAddr" value="" size="60"><br />
         Reference code: <input type="text" id="aRef" size="20">
     </div>
 
-    <div id="Deploy" class="tabcontent maintab">
+    <div id="Contract" class="tabcontent maintab">
         <div class="tab subtab deployTab">
             <button class="tablinks deployTab" onclick="openTab(event, 'deployTab', 'deploy')">Deploy new contract</button>
             <button class="tablinks deployTab" onclick="openTab(event, 'deployTab', 'init')">Init contract</button>
+            <button class="tablinks deployTab" onclick="openTab(event, 'deployTab', 'release')">Enable release</button>
+            <button class="tablinks deployTab" onclick="openTab(event, 'deployTab', 'reset')">Reset contract</button>
         </div>
         <div id="deploy" class="tabcontent deployTab">
-            Provide the reference Code (in hex) for this contract, which is the code used to monitor the release event:<br />
+            Provide the reference Code (in hex) for this contract, which is the code used to monitor the release event:<br /><br />
             Reference Code:<input type="text" id="rRef" value="" size="60"><br />
-            <button class="keys" onclick="deploy($('#rRef').val())">Submit</button><br />
+            <button class="keys" onclick="deploy($('#rRef').val())">Deploy Contract</button><br />
+            <i>The setting page will be automatically updated with this refCode once succesfull</i>
             <span id="resDeploy"></span>
         </div>
         <div id="init" class="tabcontent deployTab">
-            Provide the parameters for the deployed contract (italic not hex)<br />
+            Provide the parameters for the deployed contract (italic not hex)<br /><br />
             <table>
                 <tr><td><i>Fee:</i> </td><td><input type="text" id="ifee" value="" size="20"></td></tr>
                 <tr><td>Min Release: </td><td><input type="text" id="iquor" value="" size="5"></td></tr>
                 <tr><td>Address fee recipient: </td><td><input type="text" id="irec" value="" size="60"></td></tr>
                 <tr><td>Document Hash: </td><td><input type="text" id="ihash" value="" size="60"></td></tr>
             </table>
-            <button class="keys" onclick="setCriteria()">Submit</button>
+            <button class="keys" onclick="setCriteria()">Set Criteria</button><br />
+            <span id="resCrit"></span>
+        </div>
+        <div id="release" class="tabcontent deployTab">
+            <button class="tablinks deployTab" onclick="enable()">Activate Release</button>
+            Note that this is a one-way, the contract cannot be reset anymore after this.
+        </div>
+        <div id="reset" class="tabcontent deployTab">
+            <button class="tablinks deployTab" onclick="reset()">Reset contract to empty state</button>
+            Note that this will require setting all parameters and registering users again, as if the contract
+            was just deployed.
+        </div>
+    </div>
+
+
+    <div id="UM" class="tabcontent maintab">
+        <div class="tab subtab umTab">
+            <button class="tablinks umTab" onclick="openTab(event, 'umTab', 'umReg')">Register User</button>
+            <button class="tablinks umTab" onclick="openTab(event, 'umTab', 'umBlock')">Block User</button>
+        </div>
+        <div id="umReg" class="tabcontent umTab">
+            Please provide the account address of the user you want to <b>register</b> newly<br /><br />
+            Account address:<input type="text" id="umrAddr" value="" size="60"><br />
+            <button class="keys" onclick="register($('#umrAddr').val())">Register User</button>
+        </div>
+        <div id="umBlock" class="tabcontent umTab">
+            Please provide the account address of the user you want to <b>block</b>.<br />
+            <i>Note that unblocking is <u>not possible</u> (unless you reset the entire contract).</i><br /><br />
+            Account address:<input type="text" id="umrAddr" value="" size="60"><br />
+            <button class="keys" onclick="block($('#umrAddr').val())">Block User</button>
+        </div>
+    </div>
+
+    <div id="Repo" class="tabcontent maintab">
+        <div class="tab subtab repoTab">
+            <button class="tablinks repoTab" onclick="openTab(event, 'repoTab', 'deploy')">Register event monitor</button>
+            <button class="tablinks repoTab" onclick="openTab(event, 'deployTab', 'init')">Manual release</button>
+            <button class="tablinks repoTab" onclick="openTab(event, 'deployTab', 'deploy')">Register event monitor</button>
+        </div>
+        <div id="deploy" class="tabcontent repoTab">
+
+        </div>
+        <div id="init" class="tabcontent repoTab">
         </div>
     </div>
 
     <div id="User" class="tabcontent maintab">
-        Provide the parameters for the deployed contract (italic not hex)<br />
-        <table>
-            <tr><td><i>Fee:</i> </td><td><input type="text" id="ifee" value="" size="20"></td></tr>
-            <tr><td>Min Release: </td><td><input type="text" id="iquor" value="" size="5"></td></tr>
-            <tr><td>Address fee recipient: </td><td><input type="text" id="irec" value="" size="60"></td></tr>
-            <tr><td>Document Hash: </td><td><input type="text" id="ihash" value="" size="60"></td></tr>
-        </table>
-        <button class="keys" onclick="setCriteria()">Submit</button>
+        Please provide the fee to pay.<br />
+        <i>Note that minimum fee can be queried.</i><br /><br />
+        Fee:<input type="text" id="uFee" value="" size="60"><br />
+        <button class="keys" onclick="release($('#uFee').val())">Release Request</button>
     </div>
 
-
-    <div id="Reg" class="tabcontent maintab">
-        <div class="tab subtab regTab">
-            <button class="tablinks qTab" onclick="JavaScript:openTab(event, 'qTab', 'nInfo');doDirect('info','NI')">Node Info</button>
-            <button class="tablinks qTab" onclick="JavaScript: openTab(event, 'qTab', 'cfg');doDirect('cfg','PC')">CfgInfo</button>
-        </div>
-        Register users..
-    </div>
-    <div id="Block" class="tabcontent maintab">
-        <div class="tab subtab blockTab">
-            <button class="tablinks qTab" onclick="JavaScript:openTab(event, 'qTab', 'nInfo');doDirect('info','NI')">Node Info</button>
-            <button class="tablinks qTab" onclick="JavaScript: openTab(event, 'qTab', 'cfg');doDirect('cfg','PC')">CfgInfo</button>
-        </div>
-        Block users..
-    </div>
-
-    <div id="Enable" class="tabcontent maintab">
-        <div class="tab subtab enTab">
-            <button class="tablinks qTab" onclick="JavaScript:enable()">Activate Release</button>
-            Note that this is a one-way, the contract cannot be reset anymore after this.
-        </div>
-        Enabvle release..
-    </div>
 
     <div id="Query" class="tabcontent maintab">
         <div class="tab subtab qTab">
@@ -202,6 +215,7 @@
             <button class="tablinks qTab" onclick="JavaScript:query('numUser')">No. registered Users</button>
             <button class="tablinks qTab" onclick="JavaScript:query('hash')">Hash</button>
             <button class="tablinks qTab" onclick="JavaScript:query('nofm')">Missing registrations</button>
+            <button class="tablinks qTab" onclick="JavaScript:query('misRel')">Missing releases</button>
             <button class="tablinks qTab" onclick="JavaScript:query('enabled')">Release Enabled?</button>
             <button class="tablinks qTab" onclick="JavaScript:query('key')">ReleasedKey</button>
         </div>
@@ -210,6 +224,14 @@
 
     <div id="Info" class="tabcontent maintab">
         <h3>Protected Document Repository (individual project for blockchain course 2018)</h3>
+        <hr />
+        <p>
+            This interface allows <b>owners</b> of a contract to deploy and manage contracts. <br />
+            It allows registered <b>Users</b> to interact with the contract via <i>UserTab</i>, and to set the refCode
+            of contract via 'Contract -> Use RefCode' tab<br />
+            It allows the document reporsitry manager to register and/or manually react to events.
+        </p>
+        <hr />
         <p>
             This protected document repository allows a document owner to register a secure and confidential link reference
             within a smart contract. Once deployed, the owner can define a list of registered users, as well as how many of them are
@@ -311,7 +333,7 @@
     <script>
 
         function getAddrRef() {
-            var ret = $("#aAddr").val() + "/" + $("#aRef").val() 
+            var ret = $("#aAddr").val() + "/" + $("#aRef").val()
             return ret;
         }
 
@@ -343,18 +365,19 @@
                 "hash": $("#ihash").val(),
                 "owner": $("#aAddr").val()
             };
-            var repl = doPOSTSynch("criteria/" + $("#aRef").val(), null, data);
+            var repl = doPOSTSynch("criteria/" + getAddrRef(), null, data);
             var json = repl[0];
             var code = repl[1];
             if (code == 200) {
                 doAlert(JSON.stringify(json), 9);
+                document.getElementById("resCrit").innerHTML = "Tx hash:"+json['TXHash'];
             } else {
-                doAlert("Query for " + type + " failed", 0);
+                doAlert("Set criteria failed: " + JSON.stringify(json), 0);
             }
         }
 
-        function deploy(code) {
-            var repl = doGETSynch("deploy/" + $("#aAddr").val()+"/"+ code);
+        function deploy(refCode) {
+            var repl = doGETSynch("deploy/" + $("#aAddr").val() + "/" + refCode);
             var json = repl[0];
             var code = repl[1];
             if (code == 200) {
@@ -363,9 +386,24 @@
                     resp = resp + "<b>" + key + "</b>: " + json[key] + "<br />"
                 }
                 document.getElementById("resDeploy").innerHTML = resp;
-                document.getElementById("resAddr").value = code;
+                document.getElementById("aRef").value = refCode;
             } else {
                 doAlert("Deploy failed, " + JSON.stringify(json), 0);
+            }
+        }
+
+        function release(fee) {
+            var repl = doGETSynch("release/" + getAddrRef() + "/" + fee);
+            var json = repl[0];
+            var code = repl[1];
+            if (code == 200) {
+                var resp = "</br>"
+                for (key in json) {
+                    resp = resp + "<b>" + key + "</b>: " + json[key] + "<br />"
+                }
+                doAlert("Your release request was successful")
+            } else {
+                doAlert("Release request failed, " + JSON.stringify(json), 0);
             }
         }
 
@@ -380,14 +418,47 @@
             }
         }
 
-        function enable(type) {
-            var repl = doGETSynch("enable/" + getAddrRef() + "/" + type);
+        function enable() {
+            var repl = doGETSynch("enable/" + getAddrRef());
             var json = repl[0];
             var code = repl[1];
             if (code == 200) {
                 doAlert(JSON.stringify(json), 9);
             } else {
-                doAlert("Query for " + type + " failed", 0);
+                doAlert("Contract enable for release failed: " + JSON.stringify(json), 0);
+            }
+        }
+
+        function reset() {
+            var repl = doGETSynch("reset/" + getAddrRef());
+            var json = repl[0];
+            var code = repl[1];
+            if (code == 200) {
+                doAlert(JSON.stringify(json), 9);
+            } else {
+                doAlert("Contract reset failed: " + JSON.stringify(json), 0);
+            }
+        }
+
+        function register(user) {
+            var repl = doGETSynch("register/" + getAddrRef() + "/" + user);
+            var json = repl[0];
+            var code = repl[1];
+            if (code == 200) {
+                doAlert(JSON.stringify(json), 9);
+            } else {
+                doAlert("User register failed: " + JSON.stringify(json), 0);
+            }
+        }
+
+        function block(user) {
+            var repl = doGETSynch("block/" + getAddrRef() + "/" + user);
+            var json = repl[0];
+            var code = repl[1];
+            if (code == 200) {
+                doAlert(JSON.stringify(json), 9);
+            } else {
+                doAlert("Block user register failed: " + JSON.stringify(json), 0);
             }
         }
 
@@ -415,7 +486,7 @@
         }
 
         function doAlert(message, level) {
-            var tim = 5000;
+            var tim = 6000;
             if (level == 0) {
                 $(".alert").css("background-color", "red");
             } else if (level == 1) {
