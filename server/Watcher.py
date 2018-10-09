@@ -3,8 +3,9 @@ from web3.providers.rpc import HTTPProvider
 from web3.auto import Web3
 
 import time
+from time import sleep
 
-w3 = Web3(HTTPProvider('http://localhost:8545'))
+w3 = Web3(HTTPProvider('http://localhost:7545'))
 # #open("C:/Users/XXX/Documents/50_states.csv",mode='w')
 # with open("C:/BlockChainSG/project_blockchain/Will_contract/project/truffleProject/build/contracts/WillContract.json", mode='r') as abi_definition:
 #     abi = json.load(abi_definition)
@@ -30,6 +31,10 @@ def handle_event(event):
         #print(x)
         #print(Web3.toHex(event))
         print(w3.eth.getTransaction(x))
+        print("---------------")
+        rec = w3.eth.getTransactionReceipt(x)
+        print(rec['logs']['topics'])
+        print("-----------------")
 
 def log_loop(event_filter, poll_interval):
     while True:
@@ -46,6 +51,13 @@ def main():
     log_loop(block_filter, 2)
 
 main()
+
+# event_signature_transfer = w3.sha3(text='ReleaseRequestsCompleted(address,uint)')
+# event_filter = w3.eth.filter({'topics': [event_signature_transfer]})
+# while True:
+#     transfer_events = w3.eth.getFilterChanges(event_filter.filter_id)
+#     print(str(transfer_events))
+#     sleep(2)
 
 # w3 = Web3(HTTPProvider('http://localhost:8545'))
 # contract_address = Web3.toChecksumAddress("0xa293277dcd6f2e98ba63583fb81ed72f7555c8ef")

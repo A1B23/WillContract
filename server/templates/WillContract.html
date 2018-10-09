@@ -407,7 +407,7 @@
                 for (key in json) {
                     resp = resp + "<b>" + key + "</b>: " + json[key] + "<br />"
                 }
-                doAlert("Your release request was successful")
+                doAlert("Your release request was successful: "+resp)
             } else {
                 doAlert("Release request failed, " + JSON.stringify(json), 0);
             }

@@ -5,6 +5,10 @@ server/.idea*
 server/msv*
 server/sol*
 server/0x*
+server/node_module*
+.gitignore
+
+
 
 
 

@@ -3,8 +3,19 @@ from flask import Flask, request, jsonify, render_template
 from web3 import Web3
 from solc import compile_source
 
+# this provider connects to ganache-cli
 w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:8545"))
 #w3.eth.defaultAccount = w3.eth.accounts[0]... was used only for initial testing
+
+# this provider connects to ganache-GUI
+w3 = Web3(Web3.HTTPProvider("http://127.0.0.1:7545"))
+
+# Using infura requires to re-code the transactions into raw transactions,
+# store the private keys and manually sign all TX, as done in the exercise
+# during the course
+#w3 = Web3(Web3.HTTPProvider("https://ropsten.infura.io/YOUR_API_KEY"))
+#private key = ....
+
 
 
 app = Flask(__name__)
@@ -89,7 +100,7 @@ def deploy(address, refCode):
 
         return jsonify({"ContractAddress": str(tx_receipt['contractAddress']),
             "Block-No": str(tx_receipt['blockNumber']),
-            "TX-Hash":  str(Web3.toHex(tx_receipt['transactionHash'])),
+            "TX-Hash":  str(w3.toHex(tx_receipt['transactionHash'])),
             "TX-Index": str(tx_receipt['transactionIndex'])}), 200
     except Exception:
         return err('Deployment failed, contact admin')
@@ -201,6 +212,7 @@ def reset(address, refCode):
 # user must also provide the amount of Wei to be paid
 @app.route("/release/<address>/<refCode>/<fee>", methods=['GET'])
 def release(address, refCode, fee):
+    print("start")
     try:
         try:
             abi, addr = getInterface(refCode)
@@ -215,7 +227,15 @@ def release(address, refCode, fee):
             return err("Invalid address parameter")
         tx_hash = contract_instance.functions.releaseFor().transact({'from': address, 'value': fee, 'gas': 200000})
         receipt = w3.eth.waitForTransactionReceipt(tx_hash)
-        return jsonify({"TXHash": Web3.toHex(tx_hash)}), 200
+        receipt = receipt['logs']
+        if len(receipt) > 0:
+            receipt = receipt[0]
+            receipt1 = receipt['topics']
+            return jsonify({"TXHash": Web3.toHex(tx_hash), "receipt": str(receipt1)}), 200
+        else:
+            receipt = "N/A"
+            return jsonify({"TXHash": Web3.toHex(tx_hash)}), 200
+
     except Exception:
         return err("Release failed, provided enough ether?")
 
@@ -239,7 +259,7 @@ def releaseKey(address, refCode, key):
         receipt = w3.eth.waitForTransactionReceipt(tx_hash)
         return jsonify({"TXHash": Web3.toHex(tx_hash)}), 200
     except Exception:
-        return err("Release failed, provided enough ether?")
+        return err("Key setting, provided enough ether?")
 
 
 # This routine is used by the owner to register users
